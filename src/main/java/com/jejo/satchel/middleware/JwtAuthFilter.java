@@ -11,7 +11,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.jejo.satchel.repository.AuthorizationTokenRepository;
+import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.util.JwtUtil;
 
 import jakarta.servlet.FilterChain;
@@ -23,10 +23,10 @@ import jakarta.servlet.http.HttpServletResponse;
 public class JwtAuthFilter extends OncePerRequestFilter {
 	
 	private final UserDetailsService userDetailsService;
-	private final AuthorizationTokenRepository tokenRepository;
+	private final AuthTokenRepository tokenRepository;
 	private final JwtUtil jwtUtil;
 	
-	public JwtAuthFilter(UserDetailsService userDetailsService, AuthorizationTokenRepository tokenRepository, JwtUtil jwtUtil) {
+	public JwtAuthFilter(UserDetailsService userDetailsService, AuthTokenRepository tokenRepository, JwtUtil jwtUtil) {
 		this.userDetailsService = userDetailsService;
 		this.tokenRepository = tokenRepository;
 		this.jwtUtil = jwtUtil;
@@ -50,9 +50,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 		jwt = authHeader.substring(7);
 		username = jwtUtil.extractUsername(jwt);
 		if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-			UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-			boolean isTokenValid = tokenRepository.findByToken(jwt).map(t -> !t.isExpired()).orElse(false);
-			if (jwtUtil.isTokenValid(jwt, userDetails) && isTokenValid) {
+			boolean isTokenRevoked = tokenRepository.findByToken(jwt).map(t -> t.isRevoked()).orElse(true);
+			if (!jwtUtil.isTokenExpired(jwt) && !isTokenRevoked) {
+				UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 				UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails,
 						null, userDetails.getAuthorities());
 				authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

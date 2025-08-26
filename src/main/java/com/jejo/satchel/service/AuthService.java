@@ -17,10 +17,10 @@ import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 import com.jejo.satchel.mapper.AuthMapper;
-import com.jejo.satchel.model.AuthorizationToken;
+import com.jejo.satchel.model.AuthToken;
 import com.jejo.satchel.model.EmailVerificationToken;
 import com.jejo.satchel.model.User;
-import com.jejo.satchel.repository.AuthorizationTokenRepository;
+import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.EmailVerificationTokenRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.util.JwtUtil;
@@ -36,18 +36,20 @@ public class AuthService {
 	private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 	private final MailService mailService;
 	private final AuthenticationManager authenticationManager;
-	private final AuthorizationTokenRepository authorizationTokenRepository;
+	private final AuthTokenRepository authTokenRepository;
 	private final JwtUtil jwtUtil;
 
 	public AuthService(UserRepository userRepository, AuthMapper authMapper, PasswordEncoder passwordEncoder,
-			EmailVerificationTokenRepository emailVerificationTokenRepository, MailService mailService, AuthenticationManager authenticationManager, AuthorizationTokenRepository authorizationTokenRepository, JwtUtil jwtUtil) {
+			EmailVerificationTokenRepository emailVerificationTokenRepository, MailService mailService,
+			AuthenticationManager authenticationManager, AuthTokenRepository authorizationTokenRepository,
+			JwtUtil jwtUtil) {
 		this.userRepository = userRepository;
 		this.authMapper = authMapper;
 		this.passwordEncoder = passwordEncoder;
 		this.emailVerificationTokenRepository = emailVerificationTokenRepository;
 		this.mailService = mailService;
 		this.authenticationManager = authenticationManager;
-		this.authorizationTokenRepository = authorizationTokenRepository;
+		this.authTokenRepository = authorizationTokenRepository;
 		this.jwtUtil = jwtUtil;
 	}
 
@@ -66,7 +68,6 @@ public class AuthService {
 			sendVerificationEmail(user);
 		}
 	}
-	
 
 	@Transactional
 	public void verifyEmail(String token) {
@@ -87,13 +88,18 @@ public class AuthService {
 		user.setVerified(true);
 		userRepository.save(user);
 	}
-	
+
 	public String login(LoginRequest loginRequest) {
 		String username = loginRequest.getEmail();
 		// Throws AuthenticationException
-		authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
+		authenticationManager
+				.authenticate(new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
 		// So, the following code won't be executed if authentication fails
 		User user = userRepository.findByEmail(username).get();
+		authTokenRepository.findAllByUser(user).forEach(token -> {
+			token.setRevoked(true);
+			authTokenRepository.save(token);
+		});
 		return generateAuthorizationToken(user);
 	}
 
@@ -110,16 +116,11 @@ public class AuthService {
 		emailVerificationTokenRepository.save(verificationToken);
 		return token;
 	}
-	
+
 	private String generateAuthorizationToken(User user) {
-		authorizationTokenRepository.deleteByUser(user);
 		String token = jwtUtil.generateToken(user);
-		AuthorizationToken authorizationToken = AuthorizationToken.builder()
-				.token(token)
-				.user(user)
-				.expiresAt(LocalDateTime.now().plusDays(7)) // Expires in 7 days
-				.build();
-		authorizationTokenRepository.save(authorizationToken);
+		AuthToken authorizationToken = AuthToken.builder().token(token).user(user).build();
+		authTokenRepository.save(authorizationToken);
 		return token;
 	}
 

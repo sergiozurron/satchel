@@ -15,6 +15,7 @@ import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
+import com.jejo.satchel.exception.UnverifiedWebhookException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 
 @RestControllerAdvice
@@ -27,6 +28,7 @@ public class GlobalExceptionHandler {
 	public static final String ERROR_USER_ALREADY_VERIFIED = "user_already_verified";
 	public static final String ERROR_UNAUTHORIZED = "unauthorized";
 	public static final String ERROR_INTERNAL_SERVER_ERROR = "internal_server_error";
+	public static final String ERROR_UNVERIFIED_WEBHOOK = "unverified_webhook";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
@@ -69,6 +71,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
 				.body(new ErrorResponse(ERROR_UNAUTHORIZED, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(UnverifiedWebhookException.class)
+	public ResponseEntity<ErrorResponse> handleUnverifiedWebhookException(UnverifiedWebhookException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_UNVERIFIED_WEBHOOK, ex.getMessage()));
 	}
 	
 	@ExceptionHandler(Exception.class)

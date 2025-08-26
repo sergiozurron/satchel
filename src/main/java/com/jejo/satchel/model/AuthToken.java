@@ -1,7 +1,5 @@
 package com.jejo.satchel.model;
 
-import java.time.LocalDateTime;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,21 +19,17 @@ import lombok.NoArgsConstructor;
 @Builder
 @Entity
 @Table(name = "authorization_tokens")
-public class AuthorizationToken {
+public class AuthToken {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	@Column(nullable = false)
 	private String token;
+	@Builder.Default
 	@Column(nullable = false)
-	private LocalDateTime expiresAt;
+	private boolean revoked = false;
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	private User user;
-	
-	public boolean isExpired() {
-		return LocalDateTime.now().isAfter(expiresAt);
-	}
-	
 }

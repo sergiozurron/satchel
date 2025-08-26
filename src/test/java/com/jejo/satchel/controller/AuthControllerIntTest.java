@@ -21,7 +21,7 @@ import com.jejo.satchel.dto.LoginRequest;
 import com.jejo.satchel.dto.SignupRequest;
 import com.jejo.satchel.model.EmailVerificationToken;
 import com.jejo.satchel.model.User;
-import com.jejo.satchel.repository.AuthorizationTokenRepository;
+import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.EmailVerificationTokenRepository;
 import com.jejo.satchel.repository.UserRepository;
 
@@ -40,7 +40,7 @@ public class AuthControllerIntTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 	@Autowired
-	private AuthorizationTokenRepository authorizationTokenRepository;
+	private AuthTokenRepository authorizationTokenRepository;
 
 	@BeforeEach
 	void setup() {
@@ -49,7 +49,7 @@ public class AuthControllerIntTest {
 		authorizationTokenRepository.deleteAll();
 		userRepository.deleteAll();
 	}
-	
+
 	@Test
 	void signup_shouldReturnOk_whenValidRequest() throws Exception {
 		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
@@ -143,16 +143,37 @@ public class AuthControllerIntTest {
 	void login_shouldReturnOk_whenValidCredentials() throws Exception {
 		String email = "email@email.com";
 		String password = "password123";
-		userRepository.save(User.builder()
-				.firstName("John").lastName("Doe").email(email).password(passwordEncoder.encode(password)).verified(true).build());
-		LoginRequest loginRequest = LoginRequest.builder()
-				.email(email).password(password).build();
-		
+		userRepository.save(User.builder().firstName("John").lastName("Doe").email(email)
+				.password(passwordEncoder.encode(password)).verified(true).build());
+		LoginRequest loginRequest = LoginRequest.builder().email(email).password(password).build();
+
 		mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(loginRequest)))
-				.andExpect(status().isOk())
+				.content(objectMapper.writeValueAsString(loginRequest))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Login successful."))
 				.andExpect(jsonPath("$.token").isNotEmpty());
 	}
 
+	@Test
+	void login_shouldReturnUnauthorized_whenInvalidCredentials() throws Exception {
+		mockMvc.perform(
+				post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+						.content(objectMapper.writeValueAsString(LoginRequest.builder().email("email@email")
+								.password(passwordEncoder.encode("password")).build())))
+				.andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_UNAUTHORIZED));
+	}
+	
+	@Test
+	void login_shouldReturnUnauthorized_whenUserNotVerified() throws Exception {
+		String email = "email@email.com";
+		String password = "password123";
+		userRepository.save(User.builder().firstName("John").lastName("Doe").email(email)
+				.password(passwordEncoder.encode(password)).verified(false).build());
+		LoginRequest loginRequest = LoginRequest.builder().email(email).password(password).build();
+		
+		mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(loginRequest))).andExpect(status().isUnauthorized())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_UNAUTHORIZED));
+	}
+	
 }

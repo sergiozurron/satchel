@@ -23,13 +23,8 @@ public class JwtUtil {
 				.claim("roles", user.getAuthorities()) // Add user roles/authorities
 				.issuedAt(new Date()) // Token issuance time
 				.expiration(new Date(System.currentTimeMillis() + jwtExpiration)) // Token expiration
-				.signWith(Keys.hmacShaKeyFor(secretKey.getBytes())) // Sign with a secret key
+				.signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey)), Jwts.SIG.HS256) // Sign with a secret key
 				.compact();
-	}
-
-	public boolean isTokenValid(String token, UserDetails userDetails) {
-		final String username = extractUsername(token);
-		return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
 	}
 
 	public boolean isTokenExpired(String token) {
