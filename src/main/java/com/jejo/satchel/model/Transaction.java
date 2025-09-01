@@ -47,5 +47,5 @@ public class Transaction {
 	private LocalDateTime createdAt;
 	@ManyToOne
 	@JoinColumn(name = "account_id", nullable = false)
-	private Account account;
+	private DepositAccount account;
 }

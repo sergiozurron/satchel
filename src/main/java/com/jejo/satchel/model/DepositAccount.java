@@ -21,14 +21,16 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "accounts")
-public class Account {
+@Table(name = "deposit_accounts")
+public class DepositAccount {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	@Column(nullable = false, unique = true)
 	private String address;
+	@Column(nullable = false)
+	private String coin;
 	@Column(nullable = false)
 	private Double balance;
 	@Column(nullable = false)

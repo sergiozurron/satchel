@@ -4,7 +4,7 @@ public class UnverifiedWebhookException extends RuntimeException {
 
 	private static final long serialVersionUID = 1L;
 	
-	public UnverifiedWebhookException(String webhook) {
-		super("Unverified webhook notification: " + webhook);
+	public UnverifiedWebhookException() {
+		super("Webhook notification verification failed");
 	}
 }
