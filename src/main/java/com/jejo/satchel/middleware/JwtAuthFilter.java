@@ -21,11 +21,11 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
-	
+
 	private final UserDetailsService userDetailsService;
 	private final AuthTokenRepository tokenRepository;
 	private final JwtUtil jwtUtil;
-	
+
 	public JwtAuthFilter(UserDetailsService userDetailsService, AuthTokenRepository tokenRepository, JwtUtil jwtUtil) {
 		this.userDetailsService = userDetailsService;
 		this.tokenRepository = tokenRepository;
@@ -36,7 +36,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
 		if (request.getServletPath().contains("/api/v1/auth/login")
-				|| request.getServletPath().contains("/api/v1/auth/signup")) {
+				|| request.getServletPath().contains("/api/v1/auth/signup")
+				|| request.getServletPath().contains("/api/v1/accounts/transaction_update")) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -59,7 +60,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 				SecurityContextHolder.getContext().setAuthentication(authToken);
 			}
 		}
-		filterChain.doFilter(request, response);		
+		filterChain.doFilter(request, response);
 	}
 
 }

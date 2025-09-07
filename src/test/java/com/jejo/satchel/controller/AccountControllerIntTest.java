@@ -10,18 +10,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fireblocks.sdk.model.VaultAccount;
+import com.jejo.satchel.model.Account;
+import com.jejo.satchel.model.AccountType;
 import com.jejo.satchel.model.AuthToken;
 import com.jejo.satchel.model.User;
+import com.jejo.satchel.repository.AccountRepository;
 import com.jejo.satchel.repository.AuthTokenRepository;
-import com.jejo.satchel.repository.CollateralAccountRepository;
-import com.jejo.satchel.repository.DepositAccountRepository;
-import com.jejo.satchel.repository.RepaymentAccountRepository;
+import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.service.AssetCustodianService;
 import com.jejo.satchel.util.JwtUtil;
@@ -30,6 +32,10 @@ import com.jejo.satchel.util.JwtUtil;
 @AutoConfigureMockMvc
 public class AccountControllerIntTest {
 
+	@Value("${name.deposit.prefix}")
+	private String depositPrefix;
+	@Value("${name.collateral.prefix}")
+	private String collateralPrefix;
 	@Autowired
 	private MockMvc mockMvc;
 	@Autowired
@@ -39,13 +45,11 @@ public class AccountControllerIntTest {
 	@Autowired
 	private JwtUtil jwtUtil;
 	@Autowired
-	private CollateralAccountRepository collateralAccountRepository;
-	@Autowired
-	private RepaymentAccountRepository repaymentAccountRepository;
-	@Autowired
-	private DepositAccountRepository depositAccountRepository;
-	@Autowired
 	private AssetCustodianService assetCustodianService;
+	@Autowired
+	private AccountRepository accountRepository;
+	@Autowired
+	private FundsTransferRepository fundsTransferRepository;
 
 	private User user;
 	private String jwtToken;
@@ -54,44 +58,46 @@ public class AccountControllerIntTest {
 	void setup() {
 		// Setup a test user and JWT token if needed
 		Long random = System.currentTimeMillis() % 100000;
-		user = userRepository.save(User.builder().firstName("John").lastName("Doe").email("email@email" + random)
-				.password("pass").verified(true).build());
+		user = userRepository.save(User.builder().firstName("John").lastName("Doe")
+				.email("email@email" + random).password("pass").verified(true).build());
 		jwtToken = jwtUtil.generateToken(user);
 		authTokenRepository.save(AuthToken.builder().token(jwtToken).user(user).build());
 	}
-	
+
 	@AfterEach
 	void cleanup() {
 		// Clean up repositories after each test
-		collateralAccountRepository.deleteAll();
-		repaymentAccountRepository.deleteAll();
-		depositAccountRepository.deleteAll();
+		fundsTransferRepository.deleteAll();
+		accountRepository.deleteAll();
 		authTokenRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 
 	@Test
 	void createAccount_shouldReturnOkAndCreateAccounts() throws Exception {
-		mockMvc.perform(post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk());
 
-		assertThat(collateralAccountRepository.findByUserId(user.getId())).isPresent();
-		assertThat(repaymentAccountRepository.findByUserId(user.getId())).isPresent();
-		assertThat(depositAccountRepository.findByUserId(user.getId())).isPresent();
-
-		List<VaultAccount> vaultAccounts = assetCustodianService.findAllVaultAccounts(user.getEmail().toString());
-		assertThat(vaultAccounts.size()).isEqualTo(3);
-		assertThat(vaultAccounts.stream().map(VaultAccount::getName).toList()).containsExactlyInAnyOrder(
-				assetCustodianService.collateralPrefix + user.getEmail(),
-				assetCustodianService.repaymentPrefix + user.getEmail(),
-				assetCustodianService.depositPrefix + user.getEmail());
+		List<VaultAccount> vaultAccounts = assetCustodianService
+				.findAllVaultAccounts(user.getEmail());
+		assertThat(vaultAccounts.size()).isEqualTo(2);
+		assertThat(vaultAccounts.stream().map(VaultAccount::getName).toList())
+				.containsExactlyInAnyOrder(collateralPrefix + user.getEmail(),
+						depositPrefix + user.getEmail());
+		List<Account> accounts = accountRepository.findAllByUserId(user.getId());
+		assertThat(accounts.size()).isEqualTo(2);
+		assertThat(accounts.stream().map(Account::getType).toList())
+				.containsExactlyInAnyOrder(AccountType.COLLATERAL, AccountType.DEPOSIT);
 	}
-	
+
 	@Test
 	void createAccount_shouldReturnBadRequest_WhenAccountsAlreadyCreated() throws Exception {
-		mockMvc.perform(post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk());
-		mockMvc.perform(post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				post("/api/v1/accounts").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isBadRequest());
 	}
 

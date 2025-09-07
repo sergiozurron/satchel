@@ -1,6 +1,8 @@
 package com.jejo.satchel.model;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import org.hibernate.annotations.JdbcType;
 import org.hibernate.dialect.PostgreSQLEnumJdbcType;
@@ -16,36 +18,51 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 @Entity
-@Table(name = "transactions")
-public class Transaction {
+@Table(name = "accounts")
+public class Account {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 	@Column(nullable = false)
+	private String address;
+	@Column(nullable = false)
 	private String coin;
+	@Column(nullable = false, precision = 38, scale = 8)
+	private BigDecimal balance;
+	@Column(nullable = false, precision = 38, scale = 8)
+	private BigDecimal lockedBalance;
 	@Column(nullable = false)
-	private Double amount;
+	private LocalDateTime openedAt;
 	@Column(nullable = false)
-	private String counterpartyAddress;
-	@Column(nullable = false, unique = true)
-	private String confirmationWebhookId;
+	private Long vaultAccountId;
 	@Enumerated(EnumType.STRING)
 	@JdbcType(value = PostgreSQLEnumJdbcType.class)
 	@Column(nullable = false)
-	private TransactionStatus status;
-	@Column(name = "created_at", nullable = false, updatable = false)
-	private LocalDateTime createdAt;
+	private AccountType type;
 	@ManyToOne
-	@JoinColumn(name = "account_id", nullable = false)
-	private DepositAccount account;
+	@JoinColumn(name = "user_id")
+	private User user;
+	
+	public Long daysSinceOpened() {
+		return ChronoUnit.DAYS.between(openedAt.toLocalDate(), LocalDateTime.now().toLocalDate());
+	}
+	
+	public BigDecimal availableBalance() {
+		return balance.subtract(lockedBalance);
+	}
+	
+	public void deposit(BigDecimal amount) {
+		this.balance = this.balance.add(amount);
+	}
+	
 }

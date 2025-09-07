@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
+import com.jejo.satchel.exception.AssetCustodianApiException;
 import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
@@ -85,6 +86,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleAccountsAlreadyCreatedException(AccountsAlreadyCreatedException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(new ErrorResponse(ERROR_ACCOUNTS_ALREADY_CREATED, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(AssetCustodianApiException.class)
+	public ResponseEntity<ErrorResponse> handleAssetCustodianApiException(AssetCustodianApiException ex) {
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(new ErrorResponse(ERROR_INTERNAL_SERVER_ERROR, "Asset custodian API error: " + ex.getMessage()));
 	}
 	
 	@ExceptionHandler(Exception.class)
