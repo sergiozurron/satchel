@@ -80,7 +80,7 @@ public class AccountControllerIntTest {
 				.andExpect(status().isOk());
 
 		List<VaultAccount> vaultAccounts = assetCustodianService
-				.findAllVaultAccounts(user.getEmail());
+				.findAllVaultAccountsBySuffix(user.getEmail());
 		assertThat(vaultAccounts.size()).isEqualTo(2);
 		assertThat(vaultAccounts.stream().map(VaultAccount::getName).toList())
 				.containsExactlyInAnyOrder(collateralPrefix + user.getEmail(),

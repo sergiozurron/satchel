@@ -27,18 +27,15 @@ public class FundsTransfer {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	@Column(nullable = false, precision = 38, scale = 8)
+	@Column(nullable = false, precision = 38, scale = 6)
 	private BigDecimal amount; // Positive for deposits, negative for withdrawals
 	@Column(nullable = false)
 	private LocalDateTime timestamp;
-	@Column(nullable = false)
 	private String transactionId;
 	@Column(nullable = false)
 	private String counterpartyAddress; // Address of the other party in the transfer
 	@Column(nullable = false)
-	private Boolean isConfirmed; // Whether the transfer has been confirmed on-chain
-	@Column(nullable = false)
-	private Boolean isCredited; // Whether the transfer has been credited to the account
+	private Boolean isCompleted;
 	@ManyToOne
 	@JoinColumn(name = "account_id")
 	private Account account;

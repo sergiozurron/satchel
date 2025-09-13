@@ -17,6 +17,8 @@ import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
+import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.exception.UnverifiedWebhookException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 
@@ -32,6 +34,7 @@ public class GlobalExceptionHandler {
 	public static final String ERROR_INTERNAL_SERVER_ERROR = "internal_server_error";
 	public static final String ERROR_UNVERIFIED_WEBHOOK = "unverified_webhook";
 	public static final String ERROR_ACCOUNTS_ALREADY_CREATED = "accounts_already_created";
+	private static final String ERROR_INSUFFICIENT_FUNDS = "insufficient_funds";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
@@ -92,6 +95,18 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleAssetCustodianApiException(AssetCustodianApiException ex) {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 				.body(new ErrorResponse(ERROR_INTERNAL_SERVER_ERROR, "Asset custodian API error: " + ex.getMessage()));
+	}
+	
+	@ExceptionHandler(InsufficientFundsException.class)
+	public ResponseEntity<ErrorResponse> handleInsufficientFundsException(InsufficientFundsException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(SelfTransferException.class)
+	public ResponseEntity<ErrorResponse> handleSelfTransferException(SelfTransferException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse("self_transfer", ex.getMessage()));
 	}
 	
 	@ExceptionHandler(Exception.class)

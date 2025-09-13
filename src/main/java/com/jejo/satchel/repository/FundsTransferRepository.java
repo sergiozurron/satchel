@@ -12,7 +12,9 @@ import com.jejo.satchel.model.FundsTransfer;
 @Repository
 public interface FundsTransferRepository extends JpaRepository<FundsTransfer, Long> {
 
-	public boolean existsByTransactionId(String transactionId);
 	public Optional<FundsTransfer> findByTransactionIdAndAccount(String transactionId, Account account);
 	public Optional<FundsTransfer> findOneByAmount(BigDecimal amount);
+	public Optional<FundsTransfer> findByTransactionId(String transactionId);
+	public boolean existsByTransactionIdAndIsCompleted(String transactionId, Boolean isCompleted);
+	public boolean existsByTransactionId(String transactionId);
 }

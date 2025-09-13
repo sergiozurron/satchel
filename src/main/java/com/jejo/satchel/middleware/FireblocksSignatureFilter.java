@@ -7,8 +7,6 @@ import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,10 +15,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class FireblocksSignatureFilter extends OncePerRequestFilter {
-    private static final Logger logger = LoggerFactory.getLogger(FireblocksSignatureFilter.class);
 
     @Value("${custodian.api.public-key}")
     private String fireblocksPublicKey;
@@ -30,10 +29,9 @@ public class FireblocksSignatureFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         
         String path = request.getServletPath();
-        logger.info("FireblocksSignatureFilter invoked for path: " + path);
 
         // Only apply filter to webhook endpoint
-        if (!path.contains("/api/v1/accounts/transaction_update")) {
+        if (!path.contains("/api/v1/accounts/funds_transfer")) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -45,7 +43,7 @@ public class FireblocksSignatureFilter extends OncePerRequestFilter {
         // Get Fireblocks-Signature header
         String signature = request.getHeader("Fireblocks-Signature");
         if (signature == null) {
-            logger.error("Missing Fireblocks-Signature header");
+            log.error("Missing Fireblocks-Signature header");
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Missing signature");
             return;
@@ -54,13 +52,13 @@ public class FireblocksSignatureFilter extends OncePerRequestFilter {
         // Verify signature
         try {
             if (!verifySignature(requestBody, signature, fireblocksPublicKey)) {
-                logger.error("Invalid Fireblocks-Signature");
+                log.error("Invalid Fireblocks-Signature");
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.getWriter().write("Invalid signature");
                 return;
             }
         } catch (Exception e) {
-            logger.error("Error verifying signature", e);
+            log.error("Error verifying signature", e);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             response.getWriter().write("Signature verification failed");
             return;

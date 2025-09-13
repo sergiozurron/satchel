@@ -37,9 +37,9 @@ public class Account {
 	private String address;
 	@Column(nullable = false)
 	private String coin;
-	@Column(nullable = false, precision = 38, scale = 8)
+	@Column(nullable = false, precision = 38, scale = 6)
 	private BigDecimal balance;
-	@Column(nullable = false, precision = 38, scale = 8)
+	@Column(nullable = false, precision = 38, scale = 6)
 	private BigDecimal lockedBalance;
 	@Column(nullable = false)
 	private LocalDateTime openedAt;
@@ -63,6 +63,10 @@ public class Account {
 	
 	public void deposit(BigDecimal amount) {
 		this.balance = this.balance.add(amount);
+	}
+
+	public void withdraw(BigDecimal amount) {
+		this.balance = this.balance.subtract(amount);
 	}
 	
 }
