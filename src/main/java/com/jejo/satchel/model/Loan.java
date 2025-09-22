@@ -1,5 +1,7 @@
 package com.jejo.satchel.model;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.JdbcType;
@@ -31,37 +33,40 @@ public class Loan {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+	@Column(nullable = false, precision = 38, scale = 7)
+	private BigDecimal returnedAmount;
+	@Column(nullable = false, precision = 38, scale = 7)
+	private BigDecimal amount; // Granted amount
+	@Column(nullable = false, precision = 38, scale = 7)
+	private BigDecimal collateralAmount; // Collateral amount in BTC
+	@Column(nullable = false, precision = 6, scale = 4)
+	private BigDecimal ltv; // Loan-to-value ratio (percentage)
+	@Column(nullable = false, precision = 10, scale = 6)
+	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Column(nullable = false)
-	private Double amount; // Outstanding loan amount
-	@Column(nullable = false)
-	private Double collateralAmount; // Collateral amount in BTC
-	@Column(nullable = false)
-	private Integer ltv; // Loan-to-value ratio (percentage)
-	@Column(nullable = false)
-	private Double interestRate; // Yearly interest rate in percentage
-	@Builder.Default
-	@Column(nullable = false)
-	private Integer term = 30; // Default term is 30 days
-	@Builder.Default
+	private Integer term; // In hours
 	@Enumerated(EnumType.STRING)
 	@JdbcType(value = PostgreSQLEnumJdbcType.class)
 	@Column(nullable = false)
-	private LoanStatus status = LoanStatus.PENDING; // Default status is PENDING
+	private LoanStatus status;
 	@Column(nullable = false)
-	private Double accruedInterest; // Accrued interest
+	private BigDecimal accruedInterest; // Accrued interest
 	@Column(nullable = false)
-	private LocalDateTime requestedAt;
-	private LocalDateTime grantedAt; // When the loan was granted
+	private LocalDateTime grantedAt;
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	private User user;
 	
 	public boolean isDue() {
 		if (status == LoanStatus.ACTIVE) {
-			LocalDateTime dueDate = requestedAt.plusDays(term);
+			LocalDateTime dueDate = grantedAt.plusHours(term);
 			return LocalDateTime.now().isAfter(dueDate);
 		}
 		return false;
+	}
+	
+	public BigDecimal getReturnedShare() {
+		return returnedAmount.divide(amount.add(accruedInterest), 6, RoundingMode.FLOOR);
 	}
 
 }

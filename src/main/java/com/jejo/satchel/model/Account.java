@@ -37,9 +37,9 @@ public class Account {
 	private String address;
 	@Column(nullable = false)
 	private String coin;
-	@Column(nullable = false, precision = 38, scale = 6)
+	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal balance;
-	@Column(nullable = false, precision = 38, scale = 6)
+	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal lockedBalance;
 	@Column(nullable = false)
 	private LocalDateTime openedAt;
@@ -57,7 +57,7 @@ public class Account {
 		return ChronoUnit.DAYS.between(openedAt.toLocalDate(), LocalDateTime.now().toLocalDate());
 	}
 	
-	public BigDecimal availableBalance() {
+	public BigDecimal getAvailableBalance() {
 		return balance.subtract(lockedBalance);
 	}
 	

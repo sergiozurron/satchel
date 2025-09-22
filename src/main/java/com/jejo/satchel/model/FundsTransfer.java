@@ -27,7 +27,7 @@ public class FundsTransfer {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
-	@Column(nullable = false, precision = 38, scale = 6)
+	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal amount; // Positive for deposits, negative for withdrawals
 	@Column(nullable = false)
 	private LocalDateTime timestamp;

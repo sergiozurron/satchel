@@ -38,7 +38,7 @@ public class AssetCustodianService {
 	public String withdrawalId;
 	@Value("${custodian.account.withdrawal.address}")
 	public String withdrawalAddress;
-	
+
 	@Value("${custodian.account.omnibus.id}")
 	public String omnibusId;
 	@Value("${custodian.account.omnibus.address}")
@@ -134,11 +134,11 @@ public class AssetCustodianService {
 		return accounts;
 	}
 
-	public BigDecimal getVaultAccountAssetBalance(Long vaultAccountId, String assetId) {
+	public BigDecimal getVaultAccountAssetBalance(String vaultAccountId, String assetId) {
 		BigDecimal balance = BigDecimal.ZERO;
 		try {
 			CompletableFuture<ApiResponse<VaultAsset>> response = fireblocks.vaults()
-					.getVaultAccountAsset(vaultAccountId.toString(), assetId);
+					.getVaultAccountAsset(vaultAccountId, assetId);
 			balance = new BigDecimal(response.get().getData().getTotal());
 			System.out.println("Status code: " + response.get().getStatusCode());
 			System.out.println("Response headers: " + response.get().getHeaders());
@@ -163,6 +163,16 @@ public class AssetCustodianService {
 						new BigDecimal(asset.getTotal()));
 			});
 		});
+	}
+
+	public String createTransactionFromOmnibus(String assetId, String destinationAddress,
+			BigDecimal amount) {
+		return createTransaction(assetId,
+				new SourceTransferPeerPath().id(omnibusId).type(TransferPeerPathType.VAULT_ACCOUNT),
+				new DestinationTransferPeerPath()
+						.oneTimeAddress(new OneTimeAddress().address(destinationAddress))
+						.type(TransferPeerPathType.ONE_TIME_ADDRESS),
+				amount);
 	}
 
 	public String createTransactionFromWithdrawal(String assetId, String destinationAddress,
@@ -196,6 +206,10 @@ public class AssetCustodianService {
 			throw new AssetCustodianApiException(e.getResponseBody());
 		}
 		return transactionId;
+	}
+
+	public BigDecimal getOmnibusBalance() {
+		return getVaultAccountAssetBalance(omnibusId, omnibusCoin);
 	}
 
 }
