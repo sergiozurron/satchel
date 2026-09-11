@@ -38,6 +38,8 @@ public class DepositWallet {
 	private BigDecimal lockedBalance;
 	@Column(nullable = false)
 	private LocalDateTime openedAt;
+	@Column(nullable = false, precision = 38, scale = 7)
+	private BigDecimal accruedInterest;
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	private User user;

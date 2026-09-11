@@ -19,6 +19,7 @@ public class WalletResponse {
     private BigDecimal balance;
     private BigDecimal lockedBalance;
     private BigDecimal availableBalance;
+    private BigDecimal accruedInterest;
     private LocalDateTime openedAt;
     private Long daysSinceOpened;
 }

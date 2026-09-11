@@ -42,6 +42,7 @@ public class WalletService {
         depositWallet.setAssetId(assetId);
         depositWallet.setBalance(BigDecimal.ZERO);
         depositWallet.setLockedBalance(BigDecimal.ZERO);
+        depositWallet.setAccruedInterest(BigDecimal.ZERO);
         depositWallet.setOpenedAt(java.time.LocalDateTime.now());
         depositWalletRepository.save(depositWallet);
     }
@@ -63,6 +64,7 @@ public class WalletService {
                 .balance(wallet.getBalance())
                 .lockedBalance(wallet.getLockedBalance())
                 .availableBalance(wallet.getAvailableBalance())
+                .accruedInterest(wallet.getAccruedInterest())
                 .openedAt(wallet.getOpenedAt())
                 .daysSinceOpened(wallet.daysSinceOpened())
                 .build();
