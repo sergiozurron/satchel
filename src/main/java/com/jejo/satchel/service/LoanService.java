@@ -11,6 +11,11 @@ import org.springframework.stereotype.Service;
 import com.jejo.satchel.dto.CustomLoanRequest;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
+import com.jejo.satchel.exception.InsufficientBalanceForRepaymentException;
+import com.jejo.satchel.exception.InvalidRepaymentAmountException;
+import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.LoanNotActiveException;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.model.LoanStatus;
 import com.jejo.satchel.model.User;
@@ -85,6 +90,53 @@ public class LoanService {
 			BigDecimal interest = loan.getAmount().multiply(hourlyInterestRate);
 			loan.setAccruedInterest(loan.getAccruedInterest().add(interest));
 		});
+	}
+
+	@Transactional
+	public Loan repayLoan(Long loanId, BigDecimal repaymentAmount) {
+		User currentUser = currentUserProvider.getCurrentUser();
+		
+		// Find the loan by ID and verify ownership
+		Loan loan = loanRepository.findByIdAndUserId(loanId, currentUser.getId())
+				.orElseThrow(LoanNotFoundException::new);
+		
+		// Validate loan is active
+		if (!loan.getStatus().equals(LoanStatus.ACTIVE)) {
+			throw new LoanNotActiveException("Loan status is " + loan.getStatus());
+		}
+		
+		// Validate repayment amount
+		BigDecimal outstandingAmount = loan.getOutstandingAmount();
+		if (repaymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+			throw new InvalidRepaymentAmountException();
+		}
+		if (repaymentAmount.compareTo(outstandingAmount) > 0) {
+			throw new InvalidRepaymentAmountException(repaymentAmount, outstandingAmount);
+		}
+		
+		// Find deposit wallet for the loan asset and verify sufficient balance
+		DepositWallet depositWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId())
+				.orElseThrow(() -> new InsufficientBalanceForRepaymentException());
+		
+		BigDecimal availableBalance = depositWallet.getAvailableBalance();
+		if (availableBalance.compareTo(repaymentAmount) < 0) {
+			throw new InsufficientBalanceForRepaymentException(availableBalance, repaymentAmount);
+		}
+		
+		// Debit the deposit wallet
+		depositWallet.withdraw(repaymentAmount);
+		depositWalletRepository.save(depositWallet);
+		
+		// Update loan with repayment
+		loan.returnAmount(repaymentAmount);
+		
+		// Check if loan is fully paid and update status
+		if (loan.isPaidOut()) {
+			loan.setStatus(LoanStatus.PAID);
+		}
+		
+		return loanRepository.save(loan);
 	}
 
 }

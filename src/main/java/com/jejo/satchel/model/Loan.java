@@ -68,7 +68,7 @@ public class Loan {
 	}
 	
 	public void returnAmount(BigDecimal amount) {
-		this.returnedAmount.add(amount);
+		this.returnedAmount = this.returnedAmount.add(amount);
 	}
 	
 	public boolean isPaidOut() {
