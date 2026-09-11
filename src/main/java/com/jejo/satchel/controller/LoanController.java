@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jejo.satchel.dto.CustomLoanRequest;
+import com.jejo.satchel.dto.TransactionDetails;
+import com.jejo.satchel.dto.WebhookNotification;
 import com.jejo.satchel.service.LoanService;
 
 @RequestMapping("/api/v1/loans")
@@ -24,5 +26,11 @@ public class LoanController {
 		loanService.processLoanRequest(loanRequest);
 		return ResponseEntity.ok(null);
 	}
+	
+	// @PostMapping("/repayment")
+	// public ResponseEntity<Void> handleLoanRepayment(@RequestBody WebhookNotification<TransactionDetails> notification){
+	// 	loanService.processLoanRepayment(notification.getData());
+	// 	return ResponseEntity.ok(null);
+	// }
 	
 }

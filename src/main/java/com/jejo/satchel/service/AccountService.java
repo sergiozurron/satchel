@@ -4,21 +4,21 @@ import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.SelfTransferException;
-import com.jejo.satchel.model.Account;
-import com.jejo.satchel.model.AccountType;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.FundsTransferRepository;
-import com.jejo.satchel.repository.AccountRepository;
+import com.jejo.satchel.repository.LoanRepository;
+import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.util.CurrentUserProvider;
 import com.fireblocks.sdk.model.VaultAccount;
 import com.jejo.satchel.dto.TransactionDetails;
@@ -42,6 +42,8 @@ public class AccountService {
 	public String depositPrefix;
 	@Value("${name.collateral.prefix}")
 	public String collateralPrefix;
+	@Value("${name.repayment.prefix}")
+	public String repaymentPrefix;
 
 	@Value("${financial.deposit.sweep.min-amount}")
 	public BigDecimal depositSweepMinAmount;
@@ -52,28 +54,16 @@ public class AccountService {
 
 	private final CurrentUserProvider currentUserProvider;
 	private final AssetCustodianService assetCustodianService;
-	private final AccountRepository accountRepository;
+	private final DepositWalletRepository depositWalletRepository;
 	private final FundsTransferRepository fundsTransferRepository;
 
 	public AccountService(CurrentUserProvider currentUserProvider,
-			AssetCustodianService assetCustodianService, AccountRepository accountRepository,
-			FundsTransferRepository fundsTransferRepository) {
+			AssetCustodianService assetCustodianService, DepositWalletRepository accountRepository,
+			FundsTransferRepository fundsTransferRepository, LoanRepository loanRepository) {
 		this.currentUserProvider = currentUserProvider;
 		this.assetCustodianService = assetCustodianService;
-		this.accountRepository = accountRepository;
+		this.depositWalletRepository = accountRepository;
 		this.fundsTransferRepository = fundsTransferRepository;
-	}
-
-	@Transactional
-	public void createUserAccounts() {
-		User user = currentUserProvider.getCurrentUser();
-		if (accountRepository.existsByUserId(user.getId())) {
-			throw new AccountsAlreadyCreatedException(user.getId());
-		}
-		// Create collateral vault with BTC wallet
-		createVaultWithWallet(collateralPrefix, collateralCoin, user, AccountType.COLLATERAL);
-		// Create deposit vault with USDC wallet
-		createVaultWithWallet(depositPrefix, depositCoin, user, AccountType.DEPOSIT);
 	}
 
 	@Async
@@ -83,41 +73,36 @@ public class AccountService {
 				|| !txDetails.getStatus().equals(assetCustodianService.transactionStatusCompleted)
 				|| !txDetails.getSubStatus()
 						.equals(assetCustodianService.transactionSubstatusConfirmed)
-				|| fundsTransferRepository.existsByTransactionIdAndIsCompleted(txDetails.getId(), true)) {
+				|| txDetails.getDestination().getName().startsWith(repaymentPrefix)
+				|| fundsTransferRepository.existsByTransactionIdAndIsCompleted(txDetails.getId(),
+						true)) {
 			return;
 		}
-		if (txDetails.getSourceAddress().equals(assetCustodianService.withdrawalAddress)) {
+		// Withdrawal from omnibus to external wallet
+		if (txDetails.getSourceAddress().equals(assetCustodianService.omnibusAddress)) {
 			fundsTransferRepository.findByTransactionId(txDetails.getId())
 					.ifPresent(fundsTransfer -> {
 						fundsTransfer.setIsCompleted(true);
 						fundsTransferRepository.save(fundsTransfer);
-						Account account = fundsTransfer.getAccount();
-						account.deposit(fundsTransfer.getAmount());
-						accountRepository.save(account);
+						DepositWallet wallet = fundsTransfer.getAccount();
+						wallet.deposit(fundsTransfer.getAmount());
+						depositWalletRepository.save(wallet);
 					});
+		} else {
+			// Deposit from external wallet
+			Optional<DepositWallet> depositWalletOpt = depositWalletRepository
+					.findByAddressAndAssetId(txDetails.getDestinationAddress(), txDetails.getAssetId());
+			if (depositWalletOpt.isEmpty()) {
+				depositWalletRepository.save(DepositWallet.builder()
+						.address(txDetails.getDestinationAddress())
+						.assetId(txDetails.getAssetId())
+						.balance(new BigDecimal(txDetails.getAmountInfo().getAmount()))
+						.user(currentUserProvider.getCurrentUser())
+						.openedAt(LocalDateTime.now())
+						.build());
+			}
 		}
-		accountRepository
-				.findByAddressAndCoin(txDetails.getDestinationAddress(), txDetails.getAssetId())
-				.ifPresent(account -> {
-					fundsTransferRepository.save(FundsTransfer.builder()
-							.transactionId(txDetails.getId()).account(account)
-							.counterpartyAddress(txDetails.getSourceAddress())
-							.amount(new BigDecimal(txDetails.getAmountInfo().getAmount()))
-							.timestamp(LocalDateTime.now()).isCompleted(true).build());
-					account.deposit(new BigDecimal(txDetails.getAmountInfo().getAmount()));
-					accountRepository.save(account);
-				});
-	}
-
-	private void createVaultWithWallet(String namePrefix, String coin, User user,
-			AccountType type) {
-		String accountName = namePrefix + user.getEmail(); // TODO Use user ID instead of email
-		Long accountId = assetCustodianService.createVaultAccount(accountName);
-		String address = assetCustodianService.createWallet(accountId.toString(), coin);
-		accountRepository
-				.save(Account.builder().address(address).coin(coin).balance(BigDecimal.ZERO)
-						.lockedBalance(BigDecimal.ZERO).openedAt(LocalDateTime.now())
-						.vaultAccountId(accountId).type(type).user(user).build());
+		
 	}
 
 	@Scheduled(initialDelayString = "${custodian.deposit.sweep.delay}", fixedDelayString = "${custodian.deposit.sweep.delay}")
@@ -131,40 +116,39 @@ public class AccountService {
 
 	public void initiateWithdrawal(WithdrawalRequest withdrawalRequest) {
 		User user = currentUserProvider.getCurrentUser();
-		Account depositsAccount = accountRepository
-				.findByUserIdAndType(user.getId(), AccountType.DEPOSIT).get();
-		if (withdrawalRequest.getAmount().compareTo(depositsAccount.getBalance()) > 0) {
+		DepositWallet depositWallet = depositWalletRepository.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), withdrawalRequest.getAssetId())
+				.orElseThrow(() -> new IllegalArgumentException(
+						"Deposit wallet not found for address: " + withdrawalRequest.getDestinationAddress() + " and coin: " + withdrawalRequest.getAssetId()));
+		if (withdrawalRequest.getAmount().compareTo(depositWallet.getBalance()) > 0) {
 			throw new InsufficientFundsException();
 		}
-		accountRepository
-				.findByAddressAndCoin(withdrawalRequest.getDestinationAddress(), depositCoin)
+		depositWalletRepository
+				.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), depositCoin)
 				.ifPresentOrElse(destinationAccount -> {
 					if (destinationAccount.getUser().getId().equals(user.getId())) {
 						throw new SelfTransferException();
 					}
-					depositsAccount.deposit(withdrawalRequest.getAmount().negate());
-					accountRepository.save(depositsAccount);
-					fundsTransferRepository.save(FundsTransfer.builder().account(depositsAccount)
+					depositWallet.deposit(withdrawalRequest.getAmount().negate());
+					depositWalletRepository.save(depositWallet);
+					fundsTransferRepository.save(FundsTransfer.builder().account(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.amount(withdrawalRequest.getAmount().negate())
 							.timestamp(LocalDateTime.now()).isCompleted(true).build());
 					destinationAccount.deposit(withdrawalRequest.getAmount());
-					accountRepository.save(destinationAccount);
+					depositWalletRepository.save(destinationAccount);
 					fundsTransferRepository.save(FundsTransfer.builder().account(destinationAccount)
-							.counterpartyAddress(depositsAccount.getAddress())
+							.counterpartyAddress(depositWallet.getAddress())
 							.amount(withdrawalRequest.getAmount()).timestamp(LocalDateTime.now())
 							.isCompleted(true).build());
 				}, () -> {
 					String txId = assetCustodianService.createTransactionFromWithdrawal(depositCoin,
 							withdrawalRequest.getDestinationAddress(),
 							withdrawalRequest.getAmount());
-					fundsTransferRepository.save(FundsTransfer.builder().account(depositsAccount)
+					fundsTransferRepository.save(FundsTransfer.builder().account(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.transactionId(txId).amount(withdrawalRequest.getAmount().negate())
 							.timestamp(LocalDateTime.now()).isCompleted(false).build());
 				});
 	}
-	
-	
 
 }

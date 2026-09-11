@@ -33,18 +33,20 @@ public class Loan {
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
+	@Column(nullable = false)
+	private String loanAssetId; // Loan asset ID
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal returnedAmount;
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal amount; // Granted amount
+	@Column(nullable = false)
+	private String collateralAssetId; // Collateral asset ID
 	@Column(nullable = false, precision = 38, scale = 7)
-	private BigDecimal collateralAmount; // Collateral amount in BTC
+	private BigDecimal collateralAmount; // Collateral amount
 	@Column(nullable = false, precision = 6, scale = 4)
 	private BigDecimal ltv; // Loan-to-value ratio (percentage)
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
-	@Column(nullable = false)
-	private Integer term; // In hours
 	@Enumerated(EnumType.STRING)
 	@JdbcType(value = PostgreSQLEnumJdbcType.class)
 	@Column(nullable = false)
@@ -57,16 +59,20 @@ public class Loan {
 	@JoinColumn(name = "user_id")
 	private User user;
 	
-	public boolean isDue() {
-		if (status == LoanStatus.ACTIVE) {
-			LocalDateTime dueDate = grantedAt.plusHours(term);
-			return LocalDateTime.now().isAfter(dueDate);
-		}
-		return false;
-	}
-	
 	public BigDecimal getReturnedShare() {
 		return returnedAmount.divide(amount.add(accruedInterest), 6, RoundingMode.FLOOR);
+	}
+	
+	public BigDecimal getOutstandingAmount() {
+		return this.amount.subtract(this.returnedAmount);
+	}
+	
+	public void returnAmount(BigDecimal amount) {
+		this.returnedAmount.add(amount);
+	}
+	
+	public boolean isPaidOut() {
+		return getOutstandingAmount().compareTo(BigDecimal.ZERO) == 0;
 	}
 
 }

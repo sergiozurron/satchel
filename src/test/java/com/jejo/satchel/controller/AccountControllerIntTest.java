@@ -17,11 +17,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fireblocks.sdk.model.VaultAccount;
-import com.jejo.satchel.model.Account;
-import com.jejo.satchel.model.AccountType;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.AuthToken;
 import com.jejo.satchel.model.User;
-import com.jejo.satchel.repository.AccountRepository;
+import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.UserRepository;
@@ -47,7 +46,7 @@ public class AccountControllerIntTest {
 	@Autowired
 	private AssetCustodianService assetCustodianService;
 	@Autowired
-	private AccountRepository accountRepository;
+	private DepositWalletRepository accountRepository;
 	@Autowired
 	private FundsTransferRepository fundsTransferRepository;
 
@@ -85,10 +84,8 @@ public class AccountControllerIntTest {
 		assertThat(vaultAccounts.stream().map(VaultAccount::getName).toList())
 				.containsExactlyInAnyOrder(collateralPrefix + user.getEmail(),
 						depositPrefix + user.getEmail());
-		List<Account> accounts = accountRepository.findAllByUserId(user.getId());
+		List<DepositWallet> accounts = accountRepository.findAllByUserId(user.getId());
 		assertThat(accounts.size()).isEqualTo(2);
-		assertThat(accounts.stream().map(Account::getType).toList())
-				.containsExactlyInAnyOrder(AccountType.COLLATERAL, AccountType.DEPOSIT);
 	}
 
 	@Test

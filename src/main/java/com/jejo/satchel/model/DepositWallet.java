@@ -4,13 +4,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
-import org.hibernate.annotations.JdbcType;
-import org.hibernate.dialect.PostgreSQLEnumJdbcType;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,8 +22,8 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @SuperBuilder
 @Entity
-@Table(name = "accounts")
-public class Account {
+@Table(name = "deposit_wallets")
+public class DepositWallet {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,19 +31,13 @@ public class Account {
 	@Column(nullable = false)
 	private String address;
 	@Column(nullable = false)
-	private String coin;
+	private String assetId;
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal balance;
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal lockedBalance;
 	@Column(nullable = false)
 	private LocalDateTime openedAt;
-	@Column(nullable = false)
-	private Long vaultAccountId;
-	@Enumerated(EnumType.STRING)
-	@JdbcType(value = PostgreSQLEnumJdbcType.class)
-	@Column(nullable = false)
-	private AccountType type;
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	private User user;

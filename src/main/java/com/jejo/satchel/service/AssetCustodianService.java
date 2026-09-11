@@ -18,8 +18,8 @@ import com.fireblocks.sdk.model.CreateAssetsRequest;
 import com.fireblocks.sdk.model.CreateTransactionResponse;
 import com.fireblocks.sdk.model.CreateVaultAccountRequest;
 import com.fireblocks.sdk.model.CreateVaultAccountRequest.VaultTypeEnum;
-import com.jejo.satchel.exception.AssetCustodianApiException;
 import com.fireblocks.sdk.model.CreateVaultAssetResponse;
+import com.jejo.satchel.exception.AssetCustodianApiException;
 import com.fireblocks.sdk.model.DestinationTransferPeerPath;
 import com.fireblocks.sdk.model.OneTimeAddress;
 import com.fireblocks.sdk.model.SourceTransferPeerPath;
@@ -82,13 +82,13 @@ public class AssetCustodianService {
 		return vaultId;
 	}
 
-	public String createWallet(String vaultAccountId, String assetId) {
+	public String createVaultWallet(Long vaultAccountId, String assetId) {
 		String walletAddress = null;
 		CreateAssetsRequest createAssetsRequest = new CreateAssetsRequest();
 		String idempotencyKey = Integer.toString(new Random().nextInt());
 		try {
 			CompletableFuture<ApiResponse<CreateVaultAssetResponse>> response = fireblocks.vaults()
-					.createVaultAccountAsset(vaultAccountId, assetId, createAssetsRequest,
+					.createVaultAccountAsset(vaultAccountId.toString(), assetId, createAssetsRequest,
 							idempotencyKey);
 			walletAddress = response.get().getData().getAddress();
 			System.out.println("Status code: " + response.get().getStatusCode());

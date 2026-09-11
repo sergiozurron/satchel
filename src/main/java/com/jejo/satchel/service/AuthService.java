@@ -31,26 +31,27 @@ import jakarta.transaction.Transactional;
 public class AuthService {
 
 	private final UserRepository userRepository;
-	private final AuthMapper authMapper;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 	private final MailService mailService;
 	private final AuthenticationManager authenticationManager;
 	private final AuthTokenRepository authTokenRepository;
 	private final JwtUtil jwtUtil;
+	private final AssetCustodianService assetCustodianService;
+	private final AuthMapper authMapper = AuthMapper.INSTANCE;
 
-	public AuthService(UserRepository userRepository, AuthMapper authMapper, PasswordEncoder passwordEncoder,
+	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
 			EmailVerificationTokenRepository emailVerificationTokenRepository, MailService mailService,
 			AuthenticationManager authenticationManager, AuthTokenRepository authorizationTokenRepository,
-			JwtUtil jwtUtil) {
+			JwtUtil jwtUtil, AssetCustodianService assetCustodianService) {
 		this.userRepository = userRepository;
-		this.authMapper = authMapper;
 		this.passwordEncoder = passwordEncoder;
 		this.emailVerificationTokenRepository = emailVerificationTokenRepository;
 		this.mailService = mailService;
 		this.authenticationManager = authenticationManager;
 		this.authTokenRepository = authorizationTokenRepository;
 		this.jwtUtil = jwtUtil;
+		this.assetCustodianService = assetCustodianService;
 	}
 
 	@Transactional
@@ -86,6 +87,8 @@ public class AuthService {
 		verificationToken.setUsed(true);
 		emailVerificationTokenRepository.save(verificationToken);
 		user.setVerified(true);
+		Long vaultId = assetCustodianService.createVaultAccount("deposit-" + user.getId());
+		user.setVaultAccountId(vaultId);
 		userRepository.save(user);
 	}
 

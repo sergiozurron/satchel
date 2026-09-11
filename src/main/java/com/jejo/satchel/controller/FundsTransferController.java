@@ -11,22 +11,16 @@ import com.jejo.satchel.dto.WebhookNotification;
 import com.jejo.satchel.dto.WithdrawalRequest;
 import com.jejo.satchel.service.AccountService;
 
-@RequestMapping("/api/v1/accounts")
+@RequestMapping("/api/v1/funds_transfer")
 @RestController
-public class AccountController {
+public class FundsTransferController {
 	
 	private final AccountService accountService;
 
-	public AccountController(AccountService accountService) {
+	public FundsTransferController(AccountService accountService) {
 		this.accountService = accountService;
 	}
 
-	@PostMapping
-	public ResponseEntity<Void> createAccount() {
-		accountService.createUserAccounts();
-		return ResponseEntity.ok(null);
-	}
-	
 	@PostMapping("/withdrawal")
 	public ResponseEntity<Void> initiateWithdrawal(@RequestBody WithdrawalRequest withdrawalRequest) {
 		accountService.initiateWithdrawal(withdrawalRequest);

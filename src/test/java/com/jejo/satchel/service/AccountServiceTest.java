@@ -21,10 +21,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.fireblocks.sdk.model.AmountInfo;
 import com.jejo.satchel.dto.TransactionDetails;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
-import com.jejo.satchel.model.Account;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.model.User;
-import com.jejo.satchel.repository.AccountRepository;
+import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.util.CurrentUserProvider;
 
@@ -36,15 +36,15 @@ public class AccountServiceTest {
 	@Mock
 	private AssetCustodianService assetCustodianService;
 	@Mock
-	private AccountRepository accountRepository;
+	private DepositWalletRepository depositWalletRepository;
 	@Mock
 	private FundsTransferRepository fundsTransferRepository;
 	@InjectMocks
 	private AccountService accountService;
 
 	private TransactionDetails txDetails;
-    private Account destinationAccount;
-    private Account sourceAccount;
+    private DepositWallet destinationAccount;
+    private DepositWallet sourceAccount;
     private final String omnibusAddress = "omnibus123";
     private final String transactionStatusCompleted = "COMPLETED";
     private final String transactionSubstatusConfirmed = "CONFIRMED";
@@ -65,44 +65,16 @@ public class AccountServiceTest {
         txDetails.setStatus(transactionStatusCompleted);
         txDetails.setSubStatus(transactionSubstatusConfirmed);
 
-        destinationAccount = new Account();
+        destinationAccount = new DepositWallet();
         destinationAccount.setAddress("destAddr");
-        destinationAccount.setCoin("USDC");
+        destinationAccount.setAssetId("USDC");
         destinationAccount.setBalance(BigDecimal.ZERO);
 
-        sourceAccount = new Account();
+        sourceAccount = new DepositWallet();
         sourceAccount.setAddress("sourceAddr");
-        sourceAccount.setCoin("USDC");
+        sourceAccount.setAssetId("USDC");
         sourceAccount.setBalance(BigDecimal.ZERO);
     }
-	
-	@Test
-	void createUserAccounts_ShouldCreateAccounts_WhenUserHasNoAccounts() {
-		// Given
-		User user = User.builder().id(1L).build();
-		when(currentUserProvider.getCurrentUser()).thenReturn(user);
-		when(accountRepository.existsByUserId(user.getId())).thenReturn(false);
-		when(assetCustodianService.createVaultAccount(accountService.collateralPrefix + user.getEmail())).thenReturn(1L);
-		when(assetCustodianService.createVaultAccount(accountService.depositPrefix + user.getEmail())).thenReturn(2L);
-		when(assetCustodianService.createWallet(any(), any())).thenReturn("");
-		// When
-		accountService.createUserAccounts();
-
-		// Then
-		verify(accountRepository, times(2)).save(any());
-	}
-	
-	@Test
-	void createUserAccounts_ShouldThrowException_WhenUserAlreadyHasAccounts() {
-		// Given
-		User user = User.builder().id(1L).build();
-		when(currentUserProvider.getCurrentUser()).thenReturn(user);
-		when(accountRepository.existsByUserId(user.getId())).thenReturn(true);
-
-		// When & Then
-		assertThatThrownBy(() -> accountService.createUserAccounts())
-			.isInstanceOf(AccountsAlreadyCreatedException.class);
-	}
 	
 	@Test
     void processTransactionUpdate_shouldDoNothing_WhenDestinationIsOmnibusAddress() {
@@ -110,7 +82,7 @@ public class AccountServiceTest {
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, never()).findByAddressAndCoin(any(), any());
+        verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
         verify(fundsTransferRepository, never()).save(any());
     }
 
@@ -120,7 +92,7 @@ public class AccountServiceTest {
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, never()).findByAddressAndCoin(any(), any());
+        verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
         verify(fundsTransferRepository, never()).save(any());
     }
 
@@ -130,7 +102,7 @@ public class AccountServiceTest {
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, never()).findByAddressAndCoin(any(), any());
+        verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
         verify(fundsTransferRepository, never()).save(any());
     }
 
@@ -140,51 +112,51 @@ public class AccountServiceTest {
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, never()).findByAddressAndCoin(any(), any());
+        verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
         verify(fundsTransferRepository, never()).save(any());
     }
 
     @Test
     void processTransactionUpdate_ShouldProcessBothAccounts_WhenValid() {
-        when(accountRepository.findByAddressAndCoin("destAddr", "USDC")).thenReturn(Optional.of(destinationAccount));
-        when(accountRepository.findByAddressAndCoin("sourceAddr", "USDC")).thenReturn(Optional.of(sourceAccount));
+        when(depositWalletRepository.findByAddressAndAssetId("destAddr", "USDC")).thenReturn(Optional.of(destinationAccount));
+        when(depositWalletRepository.findByAddressAndAssetId("sourceAddr", "USDC")).thenReturn(Optional.of(sourceAccount));
         when(fundsTransferRepository.save(any(FundsTransfer.class))).thenReturn(new FundsTransfer());
-        when(accountRepository.save(any(Account.class))).thenReturn(new Account());
+        when(depositWalletRepository.save(any(DepositWallet.class))).thenReturn(new DepositWallet());
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, times(1)).findByAddressAndCoin("destAddr", "USDC");
-        verify(accountRepository, times(1)).findByAddressAndCoin("sourceAddr", "USDC");
+        verify(depositWalletRepository, times(1)).findByAddressAndAssetId("destAddr", "USDC");
+        verify(depositWalletRepository, times(1)).findByAddressAndAssetId("sourceAddr", "USDC");
         verify(fundsTransferRepository, times(2)).save(any(FundsTransfer.class));
-        verify(accountRepository, times(2)).save(any(Account.class));
+        verify(depositWalletRepository, times(2)).save(any(DepositWallet.class));
     }
 
     @Test
     void processTransactionUpdate_ShouldNotProcessIfDestinationAccountNotFound() {
-        when(accountRepository.findByAddressAndCoin("destAddr", "USDC")).thenReturn(Optional.empty());
-        when(accountRepository.findByAddressAndCoin("sourceAddr", "USDC")).thenReturn(Optional.of(sourceAccount));
+        when(depositWalletRepository.findByAddressAndAssetId("destAddr", "USDC")).thenReturn(Optional.empty());
+        when(depositWalletRepository.findByAddressAndAssetId("sourceAddr", "USDC")).thenReturn(Optional.of(sourceAccount));
         when(fundsTransferRepository.save(any(FundsTransfer.class))).thenReturn(new FundsTransfer());
-        when(accountRepository.save(any(Account.class))).thenReturn(sourceAccount);
+        when(depositWalletRepository.save(any(DepositWallet.class))).thenReturn(sourceAccount);
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, times(1)).findByAddressAndCoin("destAddr", "USDC");
+        verify(depositWalletRepository, times(1)).findByAddressAndAssetId("destAddr", "USDC");
         verify(fundsTransferRepository, times(1)).save(any(FundsTransfer.class)); // Only source account processed
-        verify(accountRepository, times(1)).save(sourceAccount);
+        verify(depositWalletRepository, times(1)).save(sourceAccount);
     }
 
     @Test
     void processTransactionUpdate_ShouldNotProcessIfSourceAccountNotFound() {
-        when(accountRepository.findByAddressAndCoin("destAddr", "USDC")).thenReturn(Optional.of(destinationAccount));
-        when(accountRepository.findByAddressAndCoin("sourceAddr", "USDC")).thenReturn(Optional.empty());
+        when(depositWalletRepository.findByAddressAndAssetId("destAddr", "USDC")).thenReturn(Optional.of(destinationAccount));
+        when(depositWalletRepository.findByAddressAndAssetId("sourceAddr", "USDC")).thenReturn(Optional.empty());
         when(fundsTransferRepository.save(any(FundsTransfer.class))).thenReturn(new FundsTransfer());
-        when(accountRepository.save(any(Account.class))).thenReturn(destinationAccount);
+        when(depositWalletRepository.save(any(DepositWallet.class))).thenReturn(destinationAccount);
 
         accountService.processTransactionUpdate(txDetails);
 
-        verify(accountRepository, times(1)).findByAddressAndCoin("sourceAddr", "USDC");
+        verify(depositWalletRepository, times(1)).findByAddressAndAssetId("sourceAddr", "USDC");
         verify(fundsTransferRepository, times(1)).save(any(FundsTransfer.class)); // Only destination account processed
-        verify(accountRepository, times(1)).save(destinationAccount);
+        verify(depositWalletRepository, times(1)).save(destinationAccount);
     }
 	
 }

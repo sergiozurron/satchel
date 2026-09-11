@@ -12,40 +12,40 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
-public class BitcoinPriceService {
+public class AssetPriceService {
 
 	private final RestClient restClient;
 	private final ObjectMapper objectMapper;
 
-	public BitcoinPriceService(@Qualifier("bitcoinPriceRestClient") RestClient restClient,
+	public AssetPriceService(@Qualifier("bitcoinPriceRestClient") RestClient restClient,
 			ObjectMapper objectMapper) {
 		this.restClient = restClient;
 		this.objectMapper = objectMapper;
 	}
 
-	public BigDecimal getBtcPrice() {
+	public BigDecimal getEthPrice() {
 		BigDecimal price = null;
-		String response = restClient.get().uri("?ids=bitcoin&vs_currencies=usd").retrieve()
+		String response = restClient.get().uri("?ids=ethereum&vs_currencies=usd").retrieve()
 				.body(String.class);
 
 		JsonNode jsonNode;
 		try {
 			jsonNode = objectMapper.readTree(response);
-			price = new BigDecimal(jsonNode.get("bitcoin").get("usd").asText());
+			price = new BigDecimal(jsonNode.get("ethereum").get("usd").asText());
 		} catch (JsonProcessingException e) {
 			e.printStackTrace();
 		}
 		return price;
 	}
 
-	public BigDecimal convertBtcToUsdc(BigDecimal btcAmount) {
-		BigDecimal btcPrice = getBtcPrice();
-		return btcAmount.multiply(btcPrice);
+	public BigDecimal convertEthToUsdc(BigDecimal EthAmount) {
+		BigDecimal EthPrice = getEthPrice();
+		return EthAmount.multiply(EthPrice);
 	}
 
-	public BigDecimal convertUsdToBtc(BigDecimal usdAmount) {
-		BigDecimal btcPrice = getBtcPrice();
-		return usdAmount.divide(btcPrice, 6, RoundingMode.FLOOR);
+	public BigDecimal convertUsdToEth(BigDecimal usdAmount) {
+		BigDecimal EthPrice = getEthPrice();
+		return usdAmount.divide(EthPrice, 6, RoundingMode.FLOOR);
 	}
 
 }

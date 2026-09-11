@@ -38,5 +38,5 @@ public class FundsTransfer {
 	private Boolean isCompleted;
 	@ManyToOne
 	@JoinColumn(name = "account_id")
-	private Account account;
+	private DepositWallet account;
 }

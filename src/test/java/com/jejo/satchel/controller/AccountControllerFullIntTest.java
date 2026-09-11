@@ -13,11 +13,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.fireblocks.sdk.model.DestinationTransferPeerPath;
 import com.fireblocks.sdk.model.SourceTransferPeerPath;
 import com.fireblocks.sdk.model.TransferPeerPathType;
-import com.jejo.satchel.model.Account;
-import com.jejo.satchel.model.AccountType;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.model.User;
-import com.jejo.satchel.repository.AccountRepository;
+import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.service.AssetCustodianService;
@@ -28,7 +27,7 @@ public class AccountControllerFullIntTest {
 	@Autowired
 	private FundsTransferRepository fundsTransferRepository;
 	@Autowired
-	private AccountRepository accountRepository;
+	private DepositWalletRepository accountRepository;
 	@Autowired
 	private UserRepository userRepository;
 	@Autowired
@@ -56,9 +55,9 @@ public class AccountControllerFullIntTest {
 			throws Exception {
 		String coin = "USDC_ETH_TEST5_AN74";
 		String destinationAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
-		Account destinationAccount = accountRepository.save(Account.builder().user(user)
-				.address(destinationAddress).coin(coin).type(AccountType.DEPOSIT)
-				.balance(BigDecimal.ZERO).lockedBalance(BigDecimal.ZERO).vaultAccountId(53L)
+		DepositWallet destinationAccount = accountRepository.save(DepositWallet.builder().user(user)
+				.address(destinationAddress).assetId(coin)
+				.balance(BigDecimal.ZERO).lockedBalance(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now()).build());
 
 		// Trigger webhook notification
@@ -83,9 +82,9 @@ public class AccountControllerFullIntTest {
 			throws Exception {
 		String coin = "USDC_ETH_TEST5_AN74";
 		String sourceAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
-		Account sourceAccount = accountRepository.save(Account.builder().user(user)
-				.address(sourceAddress).coin(coin).type(AccountType.DEPOSIT).balance(BigDecimal.ONE)
-				.lockedBalance(BigDecimal.ZERO).vaultAccountId(53L).openedAt(LocalDateTime.now())
+		DepositWallet sourceAccount = accountRepository.save(DepositWallet.builder().user(user)
+				.address(sourceAddress).assetId(coin).balance(BigDecimal.ONE)
+				.lockedBalance(BigDecimal.ZERO).openedAt(LocalDateTime.now())
 				.build());
 
 		// Trigger webhook notification
@@ -114,13 +113,13 @@ public class AccountControllerFullIntTest {
 		String coin = "USDC_ETH_TEST5_AN74";
 		String sourceAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
 		String destinationAddress = "0x8DAb822DB3E88E65a14caEcf473f70AfAD7f675e";
-		Account sourceAccount = accountRepository.save(Account.builder().user(user)
-				.address(sourceAddress).coin(coin).type(AccountType.DEPOSIT).balance(BigDecimal.ONE)
-				.lockedBalance(BigDecimal.ZERO).vaultAccountId(53L).openedAt(LocalDateTime.now())
+		DepositWallet sourceAccount = accountRepository.save(DepositWallet.builder().user(user)
+				.address(sourceAddress).assetId(coin).balance(BigDecimal.ONE)
+				.lockedBalance(BigDecimal.ZERO).openedAt(LocalDateTime.now())
 				.build());
-		Account destinationAccount = accountRepository.save(Account.builder().user(secondUser)
-				.address(destinationAddress).coin(coin).type(AccountType.DEPOSIT)
-				.balance(BigDecimal.ZERO).lockedBalance(BigDecimal.ZERO).vaultAccountId(54L)
+		DepositWallet destinationAccount = accountRepository.save(DepositWallet.builder().user(secondUser)
+				.address(destinationAddress).assetId(coin)
+				.balance(BigDecimal.ZERO).lockedBalance(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now()).build());
 
 		// Trigger webhook notification
@@ -152,9 +151,9 @@ public class AccountControllerFullIntTest {
 			throws Exception {
 		String coin = "USDC_ETH_TEST5_AN74";
 		String sourceAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
-		Account sourceAccount = accountRepository.save(Account.builder().user(user)
-				.address(sourceAddress).coin(coin).type(AccountType.DEPOSIT).balance(BigDecimal.ONE)
-				.lockedBalance(BigDecimal.ONE).vaultAccountId(53L).openedAt(LocalDateTime.now())
+		DepositWallet sourceAccount = accountRepository.save(DepositWallet.builder().user(user)
+				.address(sourceAddress).assetId(coin).balance(BigDecimal.ONE)
+				.lockedBalance(BigDecimal.ONE).openedAt(LocalDateTime.now())
 				.build());
 
 		// Trigger webhook notification
