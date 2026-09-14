@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jejo.satchel.dto.CustomLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.dto.LoanRepaymentResponse;
-import com.jejo.satchel.dto.TransactionDetails;
-import com.jejo.satchel.dto.WebhookNotification;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.service.LoanService;
 

@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CustomLoanRequest;
+import com.jejo.satchel.exception.DepositWalletNotFoundByAssetId;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientBalanceForRepaymentException;
@@ -55,9 +56,9 @@ public class LoanService {
 	public void processLoanRequest(CustomLoanRequest loanRequest) {
 		User currentUser = currentUserProvider.getCurrentUser();
 		depositWalletRepository.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getCollateralAssetId())
-				.ifPresent(account -> {
+				.ifPresent(collateralAccount -> {
 					if (loanRequest.getCollateralAmount()
-							.compareTo(account.getAvailableBalance()) > 0) {
+							.compareTo(collateralAccount.getAvailableBalance()) > 0) {
 						throw new InsufficientCollateralException();
 					}
 					BigDecimal loanAmount = bitcoinPriceService
@@ -67,18 +68,26 @@ public class LoanService {
 					if (omnibusBalance.compareTo(loanAmount) < 0) {
 						throw new ExcesiveEquivalentAmountException(omnibusBalance);
 					}
-					account.setLockedBalance(loanRequest.getCollateralAmount());
-					depositWalletRepository.save(account);
+					// Lock collateral in the collateral wallet
+					collateralAccount.setLockedBalance(loanRequest.getCollateralAmount());
+					depositWalletRepository.save(collateralAccount);
+					
+					// Credit loan amount to user's deposit wallet for the loan asset
+					DepositWallet loanAssetWallet = depositWalletRepository
+							.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getLoanAssetId())
+							.orElseThrow(() -> new DepositWalletNotFoundByAssetId(loanRequest.getLoanAssetId()));
+					loanAssetWallet.deposit(loanAmount);
+					depositWalletRepository.save(loanAssetWallet);
+					
 					LocalDateTime grantedAt = LocalDateTime.now();
 					loanRepository.save(Loan.builder().returnedAmount(BigDecimal.ZERO)
+							.loanAssetId(loanRequest.getLoanAssetId())
 							.amount(loanAmount).collateralAmount(loanRequest.getCollateralAmount())
+							.collateralAssetId(loanRequest.getCollateralAssetId())
 							.ltv(loanRequest.getLtv()).interestRate(BigDecimal.valueOf(0.05))
 							.status(LoanStatus.ACTIVE)
 							.accruedInterest(loanAmount.multiply(interestRate).divide(BigDecimal.valueOf(365), RoundingMode.HALF_UP))
 							.grantedAt(grantedAt).user(currentUser).build());
-					assetCustodianService.createTransactionFromOmnibus(
-							assetCustodianService.omnibusCoin, loanRequest.getDestinationAddress(),
-							loanAmount);
 				});
 	}
 

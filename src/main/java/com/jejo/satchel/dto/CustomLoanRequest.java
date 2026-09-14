@@ -25,6 +25,5 @@ public class CustomLoanRequest {
 	@NotBlank (message = "Collateral asset ID is required")
 	@Pattern(regexp = "ETH_TEST5", message = "Unsupported collateral asset. Only ETH sepolia is allowed for now")
 	private String collateralAssetId; // Only eth sepolia allowed for now
-    @NotBlank(message = "Destination address is required")
-    private String destinationAddress;
+
 }
