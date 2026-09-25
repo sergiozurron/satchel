@@ -1,7 +1,6 @@
 package com.jejo.satchel.service;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,7 +54,7 @@ public class WalletServiceTest {
 				.lastName("Doe")
 				.email("john.doe@example.com")
 				.password("password123")
-				.vaultAccountId(100L)
+				.vaultAccountId("100")
 				.build();
 
 		testAssetId = "USDC_ETH_TEST5_AN74";
@@ -104,12 +103,12 @@ public class WalletServiceTest {
 		walletService.createDepositWallet(testAssetId);
 
 		// Assert
-		ArgumentCaptor<Long> vaultIdCaptor = ArgumentCaptor.forClass(Long.class);
+		ArgumentCaptor<String> vaultIdCaptor = ArgumentCaptor.forClass(String.class);
 		ArgumentCaptor<String> assetIdCaptor = ArgumentCaptor.forClass(String.class);
 		verify(assetCustodianService, times(1))
 				.createVaultWallet(vaultIdCaptor.capture(), assetIdCaptor.capture());
 
-		assertThat(vaultIdCaptor.getValue()).isEqualTo(100L);
+		assertThat(vaultIdCaptor.getValue()).isEqualTo("100");
 		assertThat(assetIdCaptor.getValue()).isEqualTo(testAssetId);
 	}
 

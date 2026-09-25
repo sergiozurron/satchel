@@ -27,7 +27,7 @@ public class FundsTransferController {
 		return ResponseEntity.ok(null);
 	}
 
-	@PostMapping("/funds_transfer")
+	@PostMapping()
 	public ResponseEntity<Void> handleTransactionStatusUpdatedWebhook(
 			@RequestBody WebhookNotification<TransactionDetails> notification) {
 		accountService.processTransactionUpdate(notification.getData());

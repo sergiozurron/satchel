@@ -87,7 +87,7 @@ public class AuthService {
 		verificationToken.setUsed(true);
 		emailVerificationTokenRepository.save(verificationToken);
 		user.setVerified(true);
-		Long vaultId = assetCustodianService.createVaultAccount("deposit-" + user.getId());
+		String vaultId = assetCustodianService.createVaultAccount("deposit-" + user.getId());
 		user.setVaultAccountId(vaultId);
 		userRepository.save(user);
 	}

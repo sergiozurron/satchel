@@ -4,13 +4,13 @@ import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.model.DepositWallet;
@@ -51,6 +51,14 @@ public class AccountService {
 	public Integer interestAccrualPeriod;
 	@Value("${financial.interest.apy}")
 	public Double interestRate;
+	
+	@Value("${custodian.account.omnibus.address}")
+	public String omnibusAddress;
+	
+	@Value("${custodian.transaction.status.completed}")
+	public String transactionStatusCompleted;
+	@Value("${custodian.transaction.substatus.confirmed}")
+	public String transactionSubstatusConfirmed;
 
 	private final CurrentUserProvider currentUserProvider;
 	private final AssetCustodianService assetCustodianService;
@@ -69,38 +77,35 @@ public class AccountService {
 	@Async
 	@Transactional
 	public void processTransactionUpdate(TransactionDetails txDetails) {
-		if (txDetails.getDestinationAddress().equals(assetCustodianService.omnibusAddress)
-				|| !txDetails.getStatus().equals(assetCustodianService.transactionStatusCompleted)
+		if (txDetails.getDestinationAddress().equals(omnibusAddress)
+				|| !txDetails.getStatus().equals(transactionStatusCompleted)
 				|| !txDetails.getSubStatus()
-						.equals(assetCustodianService.transactionSubstatusConfirmed)
-				|| txDetails.getDestination().getName().startsWith(repaymentPrefix)
+						.equals(transactionSubstatusConfirmed)
 				|| fundsTransferRepository.existsByTransactionIdAndIsCompleted(txDetails.getId(),
 						true)) {
 			return;
 		}
-		// Withdrawal from omnibus to external wallet
-		if (txDetails.getSourceAddress().equals(assetCustodianService.omnibusAddress)) {
+		if (txDetails.getSourceAddress().equals(omnibusAddress)) {
+			// Withdrawal from omnibus to external wallet
 			fundsTransferRepository.findByTransactionId(txDetails.getId())
 					.ifPresent(fundsTransfer -> {
 						fundsTransfer.setIsCompleted(true);
 						fundsTransferRepository.save(fundsTransfer);
-						DepositWallet wallet = fundsTransfer.getAccount();
-						wallet.deposit(fundsTransfer.getAmount());
+						DepositWallet wallet = fundsTransfer.getDepositWallet();
+						wallet.deposit(fundsTransfer.getAmount().negate());
 						depositWalletRepository.save(wallet);
 					});
 		} else {
 			// Deposit from external wallet
-			Optional<DepositWallet> depositWalletOpt = depositWalletRepository
-					.findByAddressAndAssetId(txDetails.getDestinationAddress(), txDetails.getAssetId());
-			if (depositWalletOpt.isEmpty()) {
-				depositWalletRepository.save(DepositWallet.builder()
-						.address(txDetails.getDestinationAddress())
-						.assetId(txDetails.getAssetId())
-						.balance(new BigDecimal(txDetails.getAmountInfo().getAmount()))
-						.user(currentUserProvider.getCurrentUser())
-						.openedAt(LocalDateTime.now())
-						.build());
-			}
+			DepositWallet depositWallet = depositWalletRepository
+					.findByAddressAndAssetId(txDetails.getDestinationAddress(), txDetails.getAssetId()).get();
+			depositWallet.deposit(new BigDecimal(txDetails.getAmountInfo().getAmount()));
+			depositWalletRepository.save(depositWallet);
+			fundsTransferRepository.save(FundsTransfer.builder()
+					.transactionId(txDetails.getId()).depositWallet(depositWallet)
+					.counterpartyAddress(txDetails.getSourceAddress())
+					.amount(new BigDecimal(txDetails.getAmountInfo().getAmount()))
+					.timestamp(LocalDateTime.now()).isCompleted(true).build());
 		}
 		
 	}
@@ -116,35 +121,36 @@ public class AccountService {
 
 	public void initiateWithdrawal(WithdrawalRequest withdrawalRequest) {
 		User user = currentUserProvider.getCurrentUser();
-		DepositWallet depositWallet = depositWalletRepository.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), withdrawalRequest.getAssetId())
-				.orElseThrow(() -> new IllegalArgumentException(
-						"Deposit wallet not found for address: " + withdrawalRequest.getDestinationAddress() + " and coin: " + withdrawalRequest.getAssetId()));
-		if (withdrawalRequest.getAmount().compareTo(depositWallet.getBalance()) > 0) {
+		DepositWallet depositWallet = depositWalletRepository.findByUserIdAndAssetId(user.getId(), withdrawalRequest.getAssetId())
+				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(withdrawalRequest.getAssetId()));
+		if (withdrawalRequest.getAmount().compareTo(depositWallet.getAvailableBalance()) > 0) {
 			throw new InsufficientFundsException();
 		}
 		depositWalletRepository
 				.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), depositCoin)
-				.ifPresentOrElse(destinationAccount -> {
-					if (destinationAccount.getUser().getId().equals(user.getId())) {
+				.ifPresentOrElse(destinationWallet -> {
+					if (destinationWallet.getUser().getId().equals(user.getId())) {
 						throw new SelfTransferException();
 					}
+					// Transfer between two internal accounts: no blockchain transaction needed
 					depositWallet.deposit(withdrawalRequest.getAmount().negate());
 					depositWalletRepository.save(depositWallet);
-					fundsTransferRepository.save(FundsTransfer.builder().account(depositWallet)
+					fundsTransferRepository.save(FundsTransfer.builder().depositWallet(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.amount(withdrawalRequest.getAmount().negate())
 							.timestamp(LocalDateTime.now()).isCompleted(true).build());
-					destinationAccount.deposit(withdrawalRequest.getAmount());
-					depositWalletRepository.save(destinationAccount);
-					fundsTransferRepository.save(FundsTransfer.builder().account(destinationAccount)
+					destinationWallet.deposit(withdrawalRequest.getAmount());
+					depositWalletRepository.save(destinationWallet);
+					fundsTransferRepository.save(FundsTransfer.builder().depositWallet(destinationWallet)
 							.counterpartyAddress(depositWallet.getAddress())
 							.amount(withdrawalRequest.getAmount()).timestamp(LocalDateTime.now())
 							.isCompleted(true).build());
 				}, () -> {
-					String txId = assetCustodianService.createTransactionFromWithdrawal(depositCoin,
+					// Transfer to external account
+					String txId = assetCustodianService.createTransactionFromOmnibus(depositCoin,
 							withdrawalRequest.getDestinationAddress(),
 							withdrawalRequest.getAmount());
-					fundsTransferRepository.save(FundsTransfer.builder().account(depositWallet)
+					fundsTransferRepository.save(FundsTransfer.builder().depositWallet(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.transactionId(txId).amount(withdrawalRequest.getAmount().negate())
 							.timestamp(LocalDateTime.now()).isCompleted(false).build());

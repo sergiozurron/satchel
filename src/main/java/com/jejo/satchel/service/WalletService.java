@@ -34,7 +34,7 @@ public class WalletService {
     @Async
     @Transactional
     public void createDepositWallet(String assetId) {
-        Long currentUserVaultId = currentUserProvider.getCurrentUser().getVaultAccountId();
+        String currentUserVaultId = currentUserProvider.getCurrentUser().getVaultAccountId();
         String walletAddress = assetCustodianService.createVaultWallet(currentUserVaultId, assetId);
         DepositWallet depositWallet = new DepositWallet();
         depositWallet.setAddress(walletAddress);

@@ -13,11 +13,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
 import com.jejo.satchel.exception.AssetCustodianApiException;
+import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
 import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.InvalidRepaymentAmountException;
+import com.jejo.satchel.exception.LoanNotActiveException;
+import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.exception.UnverifiedWebhookException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
@@ -25,6 +30,11 @@ import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	private static final String ERROR_DEPOSIT_WALLET_NOT_FOUND = "deposit_wallet_not_found";
+	private static final String ERROR_INVALID_REPAYMENT_AMOUNT = "invalid_repayment_amount";
+	private static final String ERROR_LOAN_NOT_ACTIVE = "loan_not_active";
+	private static final String ERROR_LOAN_NOT_FOUND = "loan_not_found";
+	private static final String ERROR_SELF_TRANSFER = "self_transfer";
 	public static final String ERROR_EMAIL_TAKEN = "email_taken";
 	public static final String ERROR_EMAIL_VERIFICATION_TOKEN_EXPIRED = "evt_expired";
 	public static final String ERROR_EMAIL_VERIFICATION_TOKEN_NOT_FOUND = "evt_not_found";
@@ -106,7 +116,31 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(SelfTransferException.class)
 	public ResponseEntity<ErrorResponse> handleSelfTransferException(SelfTransferException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(new ErrorResponse("self_transfer", ex.getMessage()));
+				.body(new ErrorResponse(ERROR_SELF_TRANSFER, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(LoanNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleLoanNotFoundException(LoanNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ErrorResponse(ERROR_LOAN_NOT_FOUND, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(LoanNotActiveException.class)
+	public ResponseEntity<ErrorResponse> handleLoanNotActiveException(LoanNotActiveException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_LOAN_NOT_ACTIVE, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(InvalidRepaymentAmountException.class)
+	public ResponseEntity<ErrorResponse> handleInvalidRepaymentAmountException(InvalidRepaymentAmountException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_INVALID_REPAYMENT_AMOUNT, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(DepositWalletNotFoundByAssetIdException.class)
+	public ResponseEntity<ErrorResponse> handleDepositWalletNotFoundByAssetIdException(DepositWalletNotFoundByAssetIdException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ErrorResponse(ERROR_DEPOSIT_WALLET_NOT_FOUND, ex.getMessage()));
 	}
 	
 	@ExceptionHandler(Exception.class)

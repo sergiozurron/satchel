@@ -9,10 +9,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CustomLoanRequest;
-import com.jejo.satchel.exception.DepositWalletNotFoundByAssetId;
+import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
-import com.jejo.satchel.exception.InsufficientBalanceForRepaymentException;
+import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InvalidRepaymentAmountException;
 import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.exception.LoanNotActiveException;
@@ -75,7 +75,7 @@ public class LoanService {
 					// Credit loan amount to user's deposit wallet for the loan asset
 					DepositWallet loanAssetWallet = depositWalletRepository
 							.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getLoanAssetId())
-							.orElseThrow(() -> new DepositWalletNotFoundByAssetId(loanRequest.getLoanAssetId()));
+							.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(loanRequest.getLoanAssetId()));
 					loanAssetWallet.deposit(loanAmount);
 					depositWalletRepository.save(loanAssetWallet);
 					
@@ -116,21 +116,18 @@ public class LoanService {
 		
 		// Validate repayment amount
 		BigDecimal outstandingAmount = loan.getOutstandingAmount();
-		if (repaymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+		if (repaymentAmount.compareTo(BigDecimal.ZERO) <= 0 || repaymentAmount.compareTo(outstandingAmount) > 0) {
 			throw new InvalidRepaymentAmountException();
-		}
-		if (repaymentAmount.compareTo(outstandingAmount) > 0) {
-			throw new InvalidRepaymentAmountException(repaymentAmount, outstandingAmount);
 		}
 		
 		// Find deposit wallet for the loan asset and verify sufficient balance
 		DepositWallet depositWallet = depositWalletRepository
 				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId())
-				.orElseThrow(() -> new InsufficientBalanceForRepaymentException());
+				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(loan.getLoanAssetId()));
 		
 		BigDecimal availableBalance = depositWallet.getAvailableBalance();
 		if (availableBalance.compareTo(repaymentAmount) < 0) {
-			throw new InsufficientBalanceForRepaymentException(availableBalance, repaymentAmount);
+			throw new InsufficientFundsException();
 		}
 		
 		// Debit the deposit wallet

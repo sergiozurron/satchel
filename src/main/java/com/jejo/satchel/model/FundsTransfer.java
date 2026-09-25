@@ -37,6 +37,6 @@ public class FundsTransfer {
 	@Column(nullable = false)
 	private Boolean isCompleted;
 	@ManyToOne
-	@JoinColumn(name = "account_id")
-	private DepositWallet account;
+	@JoinColumn(name = "wallet_id")
+	private DepositWallet depositWallet; // The wallet associated with this transfer
 }

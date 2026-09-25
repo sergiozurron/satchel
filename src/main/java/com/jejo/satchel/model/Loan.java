@@ -4,9 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
-import org.hibernate.annotations.JdbcType;
-import org.hibernate.dialect.PostgreSQLEnumJdbcType;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -48,8 +45,7 @@ public class Loan {
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Enumerated(EnumType.STRING)
-	@JdbcType(value = PostgreSQLEnumJdbcType.class)
-	@Column(nullable = false)
+	@Column(nullable = false, length = 255)
 	private LoanStatus status;
 	@Column(nullable = false)
 	private BigDecimal accruedInterest; // Accrued interest

@@ -22,7 +22,9 @@ import com.jejo.satchel.dto.SignupRequest;
 import com.jejo.satchel.model.EmailVerificationToken;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.AuthTokenRepository;
+import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.EmailVerificationTokenRepository;
+import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
 
 @SpringBootTest
@@ -38,6 +40,10 @@ public class AuthControllerIntTest {
 	@Autowired
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 	@Autowired
+	private DepositWalletRepository depositWalletRepository;
+	@Autowired
+	private LoanRepository loanRepository;
+	@Autowired
 	private PasswordEncoder passwordEncoder;
 	@Autowired
 	private AuthTokenRepository authorizationTokenRepository;
@@ -47,6 +53,8 @@ public class AuthControllerIntTest {
 		// Clear the user repository before running tests
 		emailVerificationTokenRepository.deleteAll();
 		authorizationTokenRepository.deleteAll();
+		depositWalletRepository.deleteAll();
+		loanRepository.deleteAll();
 		userRepository.deleteAll();
 	}
 

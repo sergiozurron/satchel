@@ -22,7 +22,6 @@ import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
-import com.jejo.satchel.mapper.AuthMapper;
 import com.jejo.satchel.model.EmailVerificationToken;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.EmailVerificationTokenRepository;
@@ -34,16 +33,16 @@ public class AuthServiceTest {
 	@Mock
 	private UserRepository userRepository;
 	@Mock
-	private AuthMapper authMapper;
-	@Mock
 	private PasswordEncoder passwordEncoder;
 	@Mock
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 	@Mock
 	private MailService mailService;
+	@Mock
+	private AssetCustodianService assetCustodianService;
 	@InjectMocks
 	private AuthService authService;
-
+	
 	@Test
 	void signup_ShouldSaveUser_WhenEmailNotTaken() {
 		// Given
@@ -52,8 +51,6 @@ public class AuthServiceTest {
 
 		when(userRepository.findByEmail("email")).thenReturn(Optional.empty());
 		when(passwordEncoder.encode("password")).thenReturn("encodedPassword");
-		when(authMapper.toUserEntity(signupRequest)).thenReturn(
-				User.builder().firstName("firstName").lastName("lastName").email("email").password("password").build());
 		when(userRepository.save(User.builder().firstName("firstName").lastName("lastName").email("email")
 				.password("encodedPassword").build())).thenReturn(null); // Mocking save to return null as we don't care
 																			// about the return value in this test
@@ -117,7 +114,6 @@ public class AuthServiceTest {
 				.save(EmailVerificationToken.builder().token(token).expiresAt(LocalDateTime.of(9999, 1, 1, 1, 1, 1))
 						.used(true).user(User.builder().verified(false).build()).build()))
 				.thenReturn(null);
-		when(userRepository.save(User.builder().verified(true).build())).thenReturn(null);
 		
 		// When
 		authService.verifyEmail(token);

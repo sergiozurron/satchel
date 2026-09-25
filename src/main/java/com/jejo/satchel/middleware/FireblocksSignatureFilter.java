@@ -31,7 +31,7 @@ public class FireblocksSignatureFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
 
         // Only apply filter to webhook endpoint
-        if (!path.contains("/api/v1/accounts/funds_transfer")) {
+        if (!path.equals("/api/v1/accounts/funds_transfer")) {
             filterChain.doFilter(request, response);
             return;
         }

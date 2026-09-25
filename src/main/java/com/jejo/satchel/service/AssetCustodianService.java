@@ -64,15 +64,15 @@ public class AssetCustodianService {
 		this.fireblocks = fireblocks;
 	}
 
-	public Long createVaultAccount(String vaultName) {
-		Long vaultId = null;
+	public String createVaultAccount(String vaultName) {
+		String vaultId = null;
 		CreateVaultAccountRequest request = new CreateVaultAccountRequest().name(vaultName)
 				.vaultType(VaultTypeEnum.MPC).hiddenOnUI(true);
 		String idempotencyKey = Integer.toString(new Random().nextInt()); // Valid for 24 hours
 		try {
 			CompletableFuture<ApiResponse<VaultAccount>> response = fireblocks.vaults()
 					.createVaultAccount(request, idempotencyKey);
-			vaultId = Long.valueOf(response.get().getData().getId());
+			vaultId = response.get().getData().getId();
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());
@@ -82,7 +82,7 @@ public class AssetCustodianService {
 		return vaultId;
 	}
 
-	public String createVaultWallet(Long vaultAccountId, String assetId) {
+	public String createVaultWallet(String vaultAccountId, String assetId) {
 		String walletAddress = null;
 		CreateAssetsRequest createAssetsRequest = new CreateAssetsRequest();
 		String idempotencyKey = Integer.toString(new Random().nextInt());

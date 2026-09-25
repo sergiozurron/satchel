@@ -1,6 +1,5 @@
 package com.jejo.satchel.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -177,6 +175,7 @@ public class WalletControllerIntTest {
 				.assetId("USDC_ETH_TEST5_AN74")
 				.balance(new BigDecimal("100.50"))
 				.lockedBalance(new BigDecimal("10.00"))
+				.accruedInterest(new BigDecimal("2.50"))
 				.openedAt(LocalDateTime.now().minusDays(10))
 				.user(testUser)
 				.build());
@@ -187,6 +186,7 @@ public class WalletControllerIntTest {
 				.balance(new BigDecimal("5.25"))
 				.lockedBalance(new BigDecimal("0.00"))
 				.openedAt(LocalDateTime.now().minusDays(5))
+				.accruedInterest(BigDecimal.ZERO)
 				.user(testUser)
 				.build());
 
@@ -217,6 +217,7 @@ public class WalletControllerIntTest {
 				.assetId("USDC_ETH_TEST5_AN74")
 				.balance(new BigDecimal("250.75"))
 				.lockedBalance(new BigDecimal("50.25"))
+				.accruedInterest(new BigDecimal("5.00"))
 				.openedAt(openedAt)
 				.user(testUser)
 				.build());
@@ -233,30 +234,31 @@ public class WalletControllerIntTest {
 				.andExpect(jsonPath("$[0].lockedBalance", Matchers.equalTo(50.25)))
 				.andExpect(jsonPath("$[0].availableBalance", Matchers.equalTo(200.50)))
 				.andExpect(jsonPath("$[0].daysSinceOpened", Matchers.equalTo(7)))
+				.andExpect(jsonPath("$[0].accruedInterest", Matchers.equalTo(5.00)))
 				.andExpect(jsonPath("$[0].openedAt", Matchers.notNullValue()));
 	}
 
 	@Test
 	void getAllUserWallets_shouldCalculateAvailableBalance() throws Exception {
-		// Arrange
-		DepositWallet wallet = depositWalletRepository.save(DepositWallet.builder()
-				.address("0xabcdabcdabcdabcd")
-				.assetId("ETH_TEST5")
-				.balance(new BigDecimal("50.00"))
-				.lockedBalance(new BigDecimal("15.00"))
-				.openedAt(LocalDateTime.now().minusDays(3))
+		depositWalletRepository.save(DepositWallet.builder()
+				.address("0x5555555555555555")
+				.assetId("USDC_ETH_TEST5_AN74")
+				.balance(new BigDecimal("250.75"))
+				.lockedBalance(new BigDecimal("50.25"))
+				.accruedInterest(new BigDecimal("5.00"))
+				.openedAt(LocalDateTime.now().minusDays(7))
 				.user(testUser)
 				.build());
-
+		
 		// Act & Assert
 		mockMvc.perform(get("/api/v1/wallets")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$", Matchers.hasSize(1)))
-				.andExpect(jsonPath("$[0].balance", Matchers.equalTo(50.00)))
-				.andExpect(jsonPath("$[0].lockedBalance", Matchers.equalTo(15.00)))
-				.andExpect(jsonPath("$[0].availableBalance", Matchers.equalTo(35.00)));
+				.andExpect(jsonPath("$[0].balance", Matchers.equalTo(250.75)))
+				.andExpect(jsonPath("$[0].lockedBalance", Matchers.equalTo(50.25)))
+				.andExpect(jsonPath("$[0].availableBalance", Matchers.equalTo(200.50)));
 	}
 
 	@Test
@@ -277,6 +279,7 @@ public class WalletControllerIntTest {
 				.assetId("USDC_ETH_TEST5_AN74")
 				.balance(new BigDecimal("100.00"))
 				.lockedBalance(new BigDecimal("0.00"))
+				.accruedInterest(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now())
 				.user(testUser)
 				.build());
@@ -287,6 +290,7 @@ public class WalletControllerIntTest {
 				.assetId("ETH_TEST5")
 				.balance(new BigDecimal("50.00"))
 				.lockedBalance(new BigDecimal("0.00"))
+				.accruedInterest(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now())
 				.user(anotherUser)
 				.build());
@@ -321,6 +325,7 @@ public class WalletControllerIntTest {
 				.assetId("USDC_ETH_TEST5_AN74")
 				.balance(new BigDecimal("100.00"))
 				.lockedBalance(new BigDecimal("0.00"))
+				.accruedInterest(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now().minusDays(15))
 				.user(testUser)
 				.build());
@@ -330,6 +335,7 @@ public class WalletControllerIntTest {
 				.assetId("ETH_TEST5")
 				.balance(new BigDecimal("50.00"))
 				.lockedBalance(new BigDecimal("0.00"))
+				.accruedInterest(BigDecimal.ZERO)
 				.openedAt(LocalDateTime.now().minusDays(10))
 				.user(testUser)
 				.build());
@@ -339,6 +345,7 @@ public class WalletControllerIntTest {
 				.assetId("USDC_ETH_TEST5_AN74")
 				.balance(new BigDecimal("75.50"))
 				.lockedBalance(new BigDecimal("5.50"))
+				.accruedInterest(new BigDecimal("1.00"))
 				.openedAt(LocalDateTime.now().minusDays(5))
 				.user(testUser)
 				.build());
