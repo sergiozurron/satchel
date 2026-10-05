@@ -51,30 +51,30 @@ public class FundsTransferControllerFullIntTest {
 
 	// Requires manual steps to trigger webhook from Fireblocks
 
-	@Test
-	void handleTransactionStatusUpdatedWebhook_shouldReturnOkAndDoNothing_WhenDestinationAddressCorrespondsToOmnibusVault()
-			throws Exception {
-		String coin = "USDC_ETH_TEST5_AN74";
-		String sourceAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
-		DepositWallet sourceAccount = depositWalletRepository.save(DepositWallet.builder().user(user)
-				.address(sourceAddress).assetId(coin).balance(BigDecimal.ONE)
-				.lockedBalance(BigDecimal.ZERO).openedAt(LocalDateTime.now())
-				.accruedInterest(BigDecimal.ZERO)
-				.build());
-
-		// Trigger webhook notification
-		String txId = assetCustodianService.createTransaction(coin,
-				new SourceTransferPeerPath().id("53").type(TransferPeerPathType.VAULT_ACCOUNT),
-				new DestinationTransferPeerPath().id("51").type(TransferPeerPathType.VAULT_ACCOUNT),
-				new BigDecimal("0.001"));
-
-		Thread.sleep(60000); // Wait for async processing (increase if needed)
-
-		sourceAccount = depositWalletRepository.findById(sourceAccount.getId()).orElse(null);
-		assertThat(sourceAccount.getBalance()).isEqualByComparingTo(BigDecimal.ONE);
-		FundsTransfer fundsTransfer = fundsTransferRepository
-				.findByTransactionIdAndDepositWallet(txId, sourceAccount).orElse(null);
-		assertThat(fundsTransfer).isNull();
-	}
+//	@Test
+//	void handleTransactionStatusUpdatedWebhook_shouldReturnOkAndDoNothing_WhenDestinationAddressCorrespondsToOmnibusVault()
+//			throws Exception {
+//		String coin = "USDC_ETH_TEST5_AN74";
+//		String sourceAddress = "0xCa3d51259D32Cf715cDcfFAa16D065ECf6CBC4Ec";
+//		DepositWallet sourceAccount = depositWalletRepository.save(DepositWallet.builder().user(user)
+//				.address(sourceAddress).assetId(coin).balance(BigDecimal.ONE)
+//				.lockedBalance(BigDecimal.ZERO).openedAt(LocalDateTime.now())
+//				.accruedInterest(BigDecimal.ZERO)
+//				.build());
+//
+//		// Trigger webhook notification
+//		String txId = assetCustodianService.createTransaction(coin,
+//				new SourceTransferPeerPath().id("53").type(TransferPeerPathType.VAULT_ACCOUNT),
+//				new DestinationTransferPeerPath().id("51").type(TransferPeerPathType.VAULT_ACCOUNT),
+//				new BigDecimal("0.001"));
+//
+//		Thread.sleep(60000); // Wait for async processing (increase if needed)
+//
+//		sourceAccount = depositWalletRepository.findById(sourceAccount.getId()).orElse(null);
+//		assertThat(sourceAccount.getBalance()).isEqualByComparingTo(BigDecimal.ONE);
+//		FundsTransfer fundsTransfer = fundsTransferRepository
+//				.findByTransactionIdAndDepositWallet(txId, sourceAccount).orElse(null);
+//		assertThat(fundsTransfer).isNull();
+//	}
 
 }
