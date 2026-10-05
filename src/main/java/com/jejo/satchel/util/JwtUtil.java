@@ -13,9 +13,9 @@ import io.jsonwebtoken.security.Keys;
 @Component
 public class JwtUtil {
 
-	@Value("${jwt.secret}")
+	@Value("${satchel.jwt.secret}")
 	private String secretKey;
-	@Value("${jwt.expiration-time-ms}")
+	@Value("${satchel.jwt.expiration-time-ms}")
 	private long jwtExpiration;
 
 	public String generateToken(UserDetails user) {

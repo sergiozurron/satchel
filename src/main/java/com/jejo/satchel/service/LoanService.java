@@ -29,11 +29,11 @@ import jakarta.transaction.Transactional;
 @Service
 public class LoanService {
 
-	@Value("${custodian.account.collateral.coin}")
+	@Value("${satchel.custodian.account.collateral.coin}")
 	private String collateralCoin;
-	@Value("${name.repayment.prefix}")
+	@Value("${satchel.name.repayment.prefix}")
 	private String repaymentPrefix;
-	@Value("${financial.interest.apy}")
+	@Value("${satchel.financial.interest.apy}")
 	private BigDecimal interestRate;
 
 	private final CurrentUserProvider currentUserProvider;

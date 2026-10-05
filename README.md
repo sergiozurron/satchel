@@ -88,22 +88,22 @@ spring.datasource.username=postgres
 spring.datasource.password=your_password
 
 # Loan parameters
-loan.ltv=0.9
+satchel.loan.ltv=0.9
 
 # Interest
-financial.interest.apy=0.05
-financial.interest.accrual-period=30
+satchel.financial.interest.apy=0.05
+satchel.financial.interest.accrual-period=30
 
 # Fireblocks / Custodian (use testnet values)
-custodian.api.key=...
-custodian.api.secret=...
-custodian.account.omnibus.id=...
-custodian.account.omnibus.address=...
+satchel.custodian.api.key=...
+satchel.custodian.api.secret=...
+satchel.custodian.account.omnibus.id=...
+satchel.custodian.account.omnibus.address=...
 # ... other vault IDs and asset identifiers
 
 # JWT
-jwt.secret=...
-jwt.expiration-time-ms=3600000
+satchel.jwt.secret=...
+satchel.jwt.expiration-time-ms=3600000
 ```
 
 **Important:** Never commit real API keys or private keys. Prefer environment variables or a secrets manager in production.
@@ -222,7 +222,7 @@ Note the address returned for the desired asset.
 
 Fireblocks will emit webhooks. Once the transaction reaches the configured completed/confirmed status, the platform credits your internal ledger balance. You can then use the funds for loans or withdrawals.
 
-> Tip: In development the sweep from user vault → omnibus happens after a configurable delay (`custodian.deposit.sweep.delay`).
+> Tip: In development the sweep from user vault → omnibus happens after a configurable delay (`satchel.custodian.deposit.sweep.delay`).
 
 
 
@@ -272,7 +272,7 @@ curl -X POST http://localhost:8080/api/v1/loans \
 
 Field meanings:
 - `loanAssetId` – the asset you want to borrow (currently USDC testnet).
-- `ltv` – desired loan-to-value ratio (0–1). Must respect the platform maximum (default `loan.ltv=0.9`).
+- `ltv` – desired loan-to-value ratio (0–1). Must respect the platform maximum (default `satchel.loan.ltv=0.9`).
 - `collateralAmount` – amount of ETH you are locking.
 - `collateralAssetId` – must be `ETH_TEST5`.
 - `destinationAddress` – where the borrowed USDC should be credited / sent.

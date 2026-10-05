@@ -106,7 +106,7 @@ public class AuthControllerIntTest {
 		String token = "valid-token";
 		emailVerificationTokenRepository.save(EmailVerificationToken
 				.builder().expiresAt(LocalDateTime.of(3000, 1, 1, 1, 1)).token(token).user(User.builder()
-						.firstName("firstName").lastName("lastName").email("email").password("password").build())
+						.firstName("fullName").lastName("lastName").email("email").password("password").build())
 				.build());
 		mockMvc.perform(get("/api/v1/auth/email-verification").param("token", token)).andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Email verification successful. You can now log in."));
@@ -140,7 +140,7 @@ public class AuthControllerIntTest {
 	void verifyEmail_shouldReturnBadRequest_whenUserAlreadyVerified() throws Exception {
 		String token = "token-already-verified";
 		emailVerificationTokenRepository.save(EmailVerificationToken.builder()
-				.expiresAt(LocalDateTime.of(3000, 1, 1, 1, 1)).token(token).user(User.builder().firstName("firstName")
+				.expiresAt(LocalDateTime.of(3000, 1, 1, 1, 1)).token(token).user(User.builder().firstName("fullName")
 						.lastName("lastName").email("email").password("password").verified(true).build())
 				.build());
 		mockMvc.perform(get("/api/v1/auth/email-verification").param("token", token)).andExpect(status().isBadRequest())

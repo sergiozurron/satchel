@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.repository.CrudRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,6 +28,7 @@ import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
+import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.util.JwtUtil;
 
@@ -39,6 +41,9 @@ public class WalletControllerIntTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+	
+	@Autowired
+	private LoanRepository loanRepository;
 
 	@Autowired
 	private UserRepository userRepository;
@@ -55,6 +60,7 @@ public class WalletControllerIntTest {
 	private User testUser;
 	private String jwtToken;
 	private String testAssetId;
+
 
 	@BeforeEach
 	void setup() {
@@ -81,6 +87,7 @@ public class WalletControllerIntTest {
 	@AfterEach
 	void cleanup() {
 		// Clean up repositories after each test
+		loanRepository.deleteAll();
 		depositWalletRepository.deleteAll();
 		authTokenRepository.deleteAll();
 		userRepository.deleteAll();

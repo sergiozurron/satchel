@@ -17,7 +17,7 @@ import com.jejo.satchel.repository.UserRepository;
 @Configuration
 public class AuthConfig {
 
-	@Value("${mailtrap.api.token}")
+	@Value("${satchel.mailtrap.api.token}")
 	private String EMAIL_API_TOKEN;
 	
 	private final UserRepository userRepository;

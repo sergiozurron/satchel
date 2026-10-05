@@ -31,33 +31,33 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class AccountService {
 
-	@Value("${custodian.account.collateral.coin}")
+	@Value("${satchel.custodian.account.collateral.coin}")
 	public String collateralCoin;
-	@Value("${custodian.account.repayment.coin}")
+	@Value("${satchel.custodian.account.repayment.coin}")
 	public String repaymentCoin;
-	@Value("${custodian.account.deposit.coin}")
+	@Value("${satchel.custodian.account.deposit.coin}")
 	public String depositCoin;
 
-	@Value("${name.deposit.prefix}")
+	@Value("${satchel.name.deposit.prefix}")
 	public String depositPrefix;
-	@Value("${name.collateral.prefix}")
+	@Value("${satchel.name.collateral.prefix}")
 	public String collateralPrefix;
-	@Value("${name.repayment.prefix}")
+	@Value("${satchel.name.repayment.prefix}")
 	public String repaymentPrefix;
 
-	@Value("${financial.deposit.sweep.min-amount}")
+	@Value("${satchel.financial.deposit.sweep.min-amount}")
 	public BigDecimal depositSweepMinAmount;
-	@Value("${financial.interest.accrual-period}")
+	@Value("${satchel.financial.interest.accrual-period}")
 	public Integer interestAccrualPeriod;
-	@Value("${financial.interest.apy}")
+	@Value("${satchel.financial.interest.apy}")
 	public Double interestRate;
 	
-	@Value("${custodian.account.omnibus.address}")
+	@Value("${satchel.custodian.account.omnibus.address}")
 	public String omnibusAddress;
 	
-	@Value("${custodian.transaction.status.completed}")
+	@Value("${satchel.custodian.transaction.status.completed}")
 	public String transactionStatusCompleted;
-	@Value("${custodian.transaction.substatus.confirmed}")
+	@Value("${satchel.custodian.transaction.substatus.confirmed}")
 	public String transactionSubstatusConfirmed;
 
 	private final CurrentUserProvider currentUserProvider;
@@ -110,7 +110,7 @@ public class AccountService {
 		
 	}
 
-	@Scheduled(initialDelayString = "${custodian.deposit.sweep.delay}", fixedDelayString = "${custodian.deposit.sweep.delay}")
+	@Scheduled(initialDelayString = "${satchel.custodian.deposit.sweep.delay}", fixedDelayString = "${satchel.custodian.deposit.sweep.delay}")
 	public void sweepDepositsToOmnibus() {
 		log.info("Sweeping deposits to omnibus account");
 		List<VaultAccount> depositAccounts = assetCustodianService

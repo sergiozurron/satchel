@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class FireblocksSignatureFilter extends OncePerRequestFilter {
 
-    @Value("${custodian.api.public-key}")
+    @Value("${satchel.custodian.api.public-key}")
     private String fireblocksPublicKey;
 
     @Override

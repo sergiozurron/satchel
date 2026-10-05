@@ -34,28 +34,28 @@ import com.fireblocks.sdk.model.VaultAsset;
 @Service
 public class AssetCustodianService {
 
-	@Value("${custodian.account.withdrawal.id}")
+	@Value("${satchel.custodian.account.withdrawal.id}")
 	public String withdrawalId;
-	@Value("${custodian.account.withdrawal.address}")
+	@Value("${satchel.custodian.account.withdrawal.address}")
 	public String withdrawalAddress;
 
-	@Value("${custodian.account.omnibus.id}")
+	@Value("${satchel.custodian.account.omnibus.id}")
 	public String omnibusId;
-	@Value("${custodian.account.omnibus.address}")
+	@Value("${satchel.custodian.account.omnibus.address}")
 	public String omnibusAddress;
-	@Value("${custodian.account.omnibus.coin}")
+	@Value("${satchel.custodian.account.omnibus.coin}")
 	public String omnibusCoin;
 
-	@Value("${custodian.webhook.transaction.created}")
+	@Value("${satchel.custodian.webhook.transaction.created}")
 	public String webhookTransactionCreated;
-	@Value("${custodian.webhook.transaction.updated}")
+	@Value("${satchel.custodian.webhook.transaction.updated}")
 	public String webhookTransactionStatusUpdated;
-	@Value("${custodian.webhook.balance.updated}")
+	@Value("${satchel.custodian.webhook.balance.updated}")
 	public String webhookBalanceUpdate;
 
-	@Value("${custodian.transaction.status.completed}")
+	@Value("${satchel.custodian.transaction.status.completed}")
 	public String transactionStatusCompleted;
-	@Value("${custodian.transaction.substatus.confirmed}")
+	@Value("${satchel.custodian.transaction.substatus.confirmed}")
 	public String transactionSubstatusConfirmed;
 
 	private final Fireblocks fireblocks;

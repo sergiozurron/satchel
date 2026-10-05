@@ -20,10 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class DepositInterestService {
 
-	@Value("${custodian.account.deposit.coin}")
+	@Value("${satchel.custodian.account.deposit.coin}")
 	private String depositCoin;
 
-	@Value("${financial.interest.apy}")
+	@Value("${satchel.financial.interest.apy}")
 	private BigDecimal interestRate;
 
 	private final DepositWalletRepository depositWalletRepository;

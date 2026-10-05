@@ -11,9 +11,9 @@ import com.fireblocks.sdk.Fireblocks;
 @Configuration
 public class AssetCustodianConfig {
 
-	@Value("${custodian.api.key}")
+	@Value("${satchel.custodian.api.key}")
 	private String apiKey;
-	@Value("${custodian.api.secret}")
+	@Value("${satchel.custodian.api.secret}")
 	private String secretKey;
 	
 	@Bean
