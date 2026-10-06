@@ -10,14 +10,18 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.client.RestClient;
 
 import com.jejo.satchel.repository.UserRepository;
+import com.jejo.satchel.service.MailService;
+import com.jejo.satchel.service.MailtrapMailService;
+import com.jejo.satchel.service.RestMailService;
 
 @Configuration
 public class AuthConfig {
 
-	@Value("${satchel.mailtrap.api.token}")
+	@Value("${satchel.email.service}")
+	private String EMAIL_SERVICE;
+	@Value("${mailtrap.api.token}")
 	private String EMAIL_API_TOKEN;
 	
 	private final UserRepository userRepository;
@@ -32,10 +36,11 @@ public class AuthConfig {
 	}
 
 	@Bean
-	RestClient emailRestClient() {
-		return RestClient.builder().baseUrl("https://send.api.mailtrap.io/api/send")
-				.defaultHeader("Authorization", "Bearer " + EMAIL_API_TOKEN) // replace with actual API key
-				.build();
+	MailService mailService() {
+		if (EMAIL_SERVICE.equalsIgnoreCase("mailtrap")) {
+			return new MailtrapMailService();
+		}
+		return new RestMailService();
 	}
 
 	@Bean
