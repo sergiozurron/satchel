@@ -52,10 +52,10 @@ public class FinancialService {
 					.multiply(BigDecimal.ONE.subtract(assetFinMargins.get(deposit.getAssetId())));
 			// 31,557,600,000 milliseconds in a year (365.25 days)
 			BigDecimal periodicInterestRate = assetDepositRate
-					.divide(BigDecimal.valueOf(MILIS_IN_YEAR), 12, RoundingMode.HALF_UP);
+					.divide(BigDecimal.valueOf(MILIS_IN_YEAR / accrualPeriod), 12, RoundingMode.HALF_UP);
 			BigDecimal balance = deposit.getBalance();
 
-			// Only accrue interest on available balance (excluding locked collateral)
+			// Only accrue interest on total balance
 			if (balance.compareTo(BigDecimal.ZERO) > 0) {
 				BigDecimal interestAccrual = balance.multiply(periodicInterestRate);
 				deposit.setAccruedInterest(deposit.getAccruedInterest().add(interestAccrual));
@@ -74,6 +74,8 @@ public class FinancialService {
 			BigDecimal interest = loan.getAmount().multiply(periodicInterestRate);
 			loan.setAccruedInterest(loan.getAccruedInterest().add(interest));
 		});
+		
+		log.info("Completed loan interest accrual task");
 	}
 
 	@Scheduled(initialDelayString = "${satchel.custodian.deposit.sweep.delay}", fixedDelayString = "${satchel.custodian.deposit.sweep.delay}")

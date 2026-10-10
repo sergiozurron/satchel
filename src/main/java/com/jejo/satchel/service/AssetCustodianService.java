@@ -43,6 +43,8 @@ public class AssetCustodianService {
 
 	@Value("#{${satchel.financial.assets.deposit-sweep-minimum}}")
 	private Map<String, BigDecimal> assetDepositSweepMinimums;
+	@Value("#{${satchel.financial.assets.base-asset}}")
+	private Map<String, String> assetBaseAsset;
 
 	@Value("${satchel.custodian.account.withdrawal.id}")
 	public String withdrawalId;
@@ -53,8 +55,6 @@ public class AssetCustodianService {
 	public String omnibusId;
 	@Value("${satchel.custodian.account.omnibus.address}")
 	public String omnibusAddress;
-	@Value("${satchel.custodian.account.omnibus.coin}")
-	public String omnibusCoin;
 
 	@Value("${satchel.custodian.webhook.transaction.created}")
 	public String webhookTransactionCreated;
@@ -182,6 +182,15 @@ public class AssetCustodianService {
 				"deposit-", BigDecimal.ZERO, null);
 		depositAccounts.forEach(account -> {
 			account.getAssets().forEach(asset -> {
+				if (assetBaseAsset.get(asset.getId()).equals(asset.getId()) && new BigDecimal(asset.getAvailable()).compareTo(BigDecimal.ZERO) == 0) {
+					createTransaction(asset.getId(),
+							new SourceTransferPeerPath().id(account.getId())
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							new DestinationTransferPeerPath().id(omnibusId)
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							new BigDecimal(asset.getAvailable()));
+					
+				}
 				if (new BigDecimal(asset.getAvailable())
 						.compareTo(assetDepositSweepMinimums.get(asset.getId())) > 0) {
 					createTransaction(asset.getId(),
@@ -238,8 +247,8 @@ public class AssetCustodianService {
 		return transactionId;
 	}
 
-	public BigDecimal getOmnibusBalance() {
-		return getVaultAccountAssetBalance(omnibusId, omnibusCoin);
+	public BigDecimal getOmnibusBalance(String assetId) {
+		return getVaultAccountAssetBalance(omnibusId, assetId);
 	}
 
 }

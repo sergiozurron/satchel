@@ -60,4 +60,8 @@ public class DepositWallet {
 		this.balance = this.balance.subtract(amount);
 	}
 	
+	public void lockBalance(BigDecimal amount) {
+		this.lockedBalance = this.lockedBalance.add(amount);
+	}
+	
 }

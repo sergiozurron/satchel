@@ -40,8 +40,6 @@ public class Loan {
 	private String collateralAssetId; // Collateral asset ID
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal collateralAmount; // Collateral amount
-	@Column(nullable = false, precision = 6, scale = 4)
-	private BigDecimal ltv; // Loan-to-value ratio (percentage)
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Enumerated(EnumType.STRING)
@@ -60,7 +58,7 @@ public class Loan {
 	}
 	
 	public BigDecimal getOutstandingAmount() {
-		return this.amount.subtract(this.returnedAmount);
+		return amount.add(accruedInterest).subtract(returnedAmount);
 	}
 	
 	public void returnAmount(BigDecimal amount) {
