@@ -37,6 +37,8 @@ public class AccountService {
 
 	@Value("${satchel.custodian.account.omnibus.address}")
 	public String omnibusAddress;
+	@Value("${satchel.custodian.account.gas-station.address}")
+	public String gasStationAddress;
 
 	@Value("${satchel.custodian.transaction.status.completed}")
 	public String transactionStatusCompleted;
@@ -63,6 +65,7 @@ public class AccountService {
 		log.info("Processing transaction update for txId: {} with status {}", txDetails.getId(),
 				txDetails.getStatus());
 		if (txDetails.getDestinationAddress().equals(omnibusAddress)
+				|| txDetails.getSourceAddress().equals(gasStationAddress)
 				|| !txDetails.getStatus().equals(transactionStatusCompleted)
 				|| !txDetails.getSubStatus().equals(transactionSubstatusConfirmed)
 				|| fundsTransferRepository.existsByTransactionIdAndIsCompleted(txDetails.getId(),
