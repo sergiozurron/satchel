@@ -2,8 +2,8 @@ package com.jejo.satchel.dto;
 
 import java.math.BigDecimal;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +19,7 @@ public class LoanRepaymentRequest {
 	private Long loanId;
 	
 	@NotNull(message = "Repayment amount is required")
-	@DecimalMin(value = "0.0001", inclusive = false, message = "Repayment amount must be greater than 0")
+	@Positive(message = "Repayment amount must be positive")
 	private BigDecimal amount;
 
 }
