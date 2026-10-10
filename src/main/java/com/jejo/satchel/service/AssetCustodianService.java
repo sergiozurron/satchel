@@ -2,6 +2,7 @@ package com.jejo.satchel.service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -67,6 +68,11 @@ public class AssetCustodianService {
 	public String transactionStatusCompleted;
 	@Value("${satchel.custodian.transaction.substatus.confirmed}")
 	public String transactionSubstatusConfirmed;
+
+	@Value("${satchel.custodian.account.gas-station.id}")
+	public String gasStationId;
+	@Value("${satchel.financial.gas-threshold}")
+	public BigDecimal gasThreshold;
 
 	private final Fireblocks fireblocks;
 
@@ -180,20 +186,33 @@ public class AssetCustodianService {
 	public void sweepDepositsToOmnibus() {
 		List<VaultAccount> depositAccounts = findAllVaultAccountsByPrefixAndMinAmountAndAsset(
 				"deposit-", BigDecimal.ZERO, null);
+		// Gather base asset amounts for auto fueling
+		Map<String, BigDecimal> baseAssetAmount = new HashMap<>();
 		depositAccounts.forEach(account -> {
 			account.getAssets().forEach(asset -> {
-				if (assetBaseAsset.get(asset.getId()).equals(asset.getId()) && new BigDecimal(asset.getAvailable()).compareTo(BigDecimal.ZERO) == 0) {
-					createTransaction(asset.getId(),
-							new SourceTransferPeerPath().id(account.getId())
-									.type(TransferPeerPathType.VAULT_ACCOUNT),
-							new DestinationTransferPeerPath().id(omnibusId)
-									.type(TransferPeerPathType.VAULT_ACCOUNT),
-							new BigDecimal(asset.getAvailable()));
-					
+				String assetId = asset.getId();
+				if (assetBaseAsset.get(assetId).equals(assetId)) {
+					baseAssetAmount.put(assetId, new BigDecimal(asset.getAvailable()));
 				}
-				if (new BigDecimal(asset.getAvailable())
-						.compareTo(assetDepositSweepMinimums.get(asset.getId())) > 0) {
-					createTransaction(asset.getId(),
+			});
+		});
+		// Transfer to omnibus or fuel
+		depositAccounts.forEach(account -> {
+			account.getAssets().forEach(asset -> {
+				String assetId = asset.getId();
+				String baseAssetId = assetBaseAsset.get(assetId);
+				if (!baseAssetId.equals(assetId)
+						&& baseAssetAmount.get(baseAssetId).compareTo(gasThreshold) < 0) {
+					createTransaction(baseAssetId,
+							new SourceTransferPeerPath().id(gasStationId)
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							new DestinationTransferPeerPath().id(account.getId())
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							gasThreshold.multiply(BigDecimal.valueOf(2L)));
+					log.info("Fueling vault account {} with {}", account.getId(), baseAssetId);
+				} else if (new BigDecimal(asset.getAvailable())
+						.compareTo(assetDepositSweepMinimums.get(assetId)) > 0) {
+					createTransaction(assetId,
 							new SourceTransferPeerPath().id(account.getId())
 									.type(TransferPeerPathType.VAULT_ACCOUNT),
 							new DestinationTransferPeerPath().id(omnibusId)

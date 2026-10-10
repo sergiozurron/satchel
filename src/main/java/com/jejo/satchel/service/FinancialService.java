@@ -30,7 +30,7 @@ public class FinancialService {
 
 	@Value("{satchel.name.deposit.prefix}")
 	private String depositPrefix;
-
+	
 	private static final Double MILIS_IN_YEAR = 31_557_600_000.0;
 
 	private final DepositWalletRepository depositWalletRepository;
@@ -44,7 +44,7 @@ public class FinancialService {
 		this.assetCustodianService = assetCustodianService;
 	}
 
-	@Scheduled(fixedRateString = "${satchel.financial.accrual-period}") // 1 hour in milliseconds
+	@Scheduled(fixedRateString = "${satchel.financial.accrual-period}")
 	@Transactional
 	public void accrueInterestOnDeposits() {
 		depositWalletRepository.findAll().forEach(deposit -> {
@@ -83,5 +83,7 @@ public class FinancialService {
 		log.info("Sweeping deposits to omnibus account");
 		assetCustodianService.sweepDepositsToOmnibus();
 	}
+	
+	
 
 }
