@@ -1,5 +1,10 @@
 package com.jejo.satchel.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -16,9 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.repository.CrudRepository;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +35,7 @@ import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
+import com.jejo.satchel.service.AssetCustodianService;
 import com.jejo.satchel.util.JwtUtil;
 
 @SpringBootTest
@@ -57,9 +63,14 @@ public class WalletControllerIntTest {
 	@Autowired
 	private JwtUtil jwtUtil;
 
+	@MockitoBean
+	private AssetCustodianService assetCustodianService;
+
 	private User testUser;
 	private String jwtToken;
 	private String testAssetId;
+	private String testVaultAccountId;
+	private String testWalletAddress;
 
 
 	@BeforeEach
@@ -82,6 +93,8 @@ public class WalletControllerIntTest {
 				.build());
 
 		testAssetId = "USDC_ETH_TEST5_AN74";
+		testVaultAccountId = "100";
+		testWalletAddress = "0xabc";
 	}
 
 	@AfterEach
@@ -96,6 +109,11 @@ public class WalletControllerIntTest {
 	@Test
 	void createDepositWallet_shouldReturnOkAndCreateWallet_WhenValidRequest() throws Exception {
 		// Arrange
+		testUser.setVaultAccountId(testVaultAccountId);
+		testUser = userRepository.save(testUser);
+		when(assetCustodianService.createVaultWallet(testVaultAccountId, testAssetId))
+				.thenReturn(testWalletAddress);
+
 		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
 		request.setAssetId(testAssetId);
 
@@ -106,59 +124,45 @@ public class WalletControllerIntTest {
 				.content(objectMapper.writeValueAsString(request)))
 				// Assert
 				.andExpect(status().isOk())
-				.andExpect(content().string("Deposit wallet created successfully"));
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.message").value("Deposit wallet created successfully"));
+
+		DepositWallet saved = depositWalletRepository
+				.findByUserIdAndAssetId(testUser.getId(), testAssetId)
+				.orElseThrow();
+		assertThat(saved.getAddress()).isEqualTo(testWalletAddress);
+		assertThat(saved.getAssetId()).isEqualTo(testAssetId);
+		assertThat(saved.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+		verify(assetCustodianService).createVaultWallet(testVaultAccountId, testAssetId);
 	}
 
-	@Test
-	void createDepositWallet_shouldCallWalletServiceAsynchronously() throws Exception {
-		// Arrange
+	@Test 
+	void createDepositWallet_shouldReturnConflict_WhenWalletAlreadyExists() throws Exception {
+		// Arrange - Create a wallet for the test user
+		depositWalletRepository.save(DepositWallet.builder()
+				.address("0x1234567890abcdef")
+				.assetId(testAssetId)
+				.balance(BigDecimal.ZERO)
+				.lockedBalance(BigDecimal.ZERO)
+				.accruedInterest(BigDecimal.ZERO)
+				.openedAt(LocalDateTime.now())
+				.user(testUser)
+				.build());
+
 		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
 		request.setAssetId(testAssetId);
-
-		// Act
-		mockMvc.perform(post("/api/v1/wallets")
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request)))
-				// Assert - endpoint should return OK immediately
-				.andExpect(status().isOk())
-				.andExpect(content().string("Deposit wallet created successfully"));
-		
-		// Note: The actual wallet creation happens asynchronously via @Async annotation.
-		// The endpoint returns immediately without waiting for the async operation to complete.
-		// In production, the wallet would be created in a separate thread.
-	}
-
-	@Test
-	void createDepositWallet_shouldReturnOkWithEthereumTestnetAsset() throws Exception {
-		// Arrange
-		String ethAssetId = "ETH_TEST5";
-		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
-		request.setAssetId(ethAssetId);
-
-		// Act
-		mockMvc.perform(post("/api/v1/wallets")
-				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request)))
-				// Assert
-				.andExpect(status().isOk())
-				.andExpect(content().string("Deposit wallet created successfully"));
-	}
-
-	@Test
-	void createDepositWallet_shouldReturnOkWithCorrectAssetId_WhenUsdcEthTestnet() throws Exception {
-		// Arrange
-		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
-		request.setAssetId("USDC_ETH_TEST5_AN74");
 
 		// Act & Assert
 		mockMvc.perform(post("/api/v1/wallets")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
-				.andExpect(status().isOk())
-				.andExpect(content().string("Deposit wallet created successfully"));
+				.andExpect(status().isConflict())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_DEPOSIT_WALLET_ALREADY_EXISTS))
+				.andExpect(jsonPath("$.message").value(
+						"Deposit wallet for asset " + testAssetId + " already exists for the current user."));
+		verify(assetCustodianService, never()).createVaultWallet(any(), any());
 	}
 
 	// Tests for GET /api/v1/wallets endpoint

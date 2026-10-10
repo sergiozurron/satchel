@@ -3,6 +3,7 @@ package com.jejo.satchel.service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -14,14 +15,19 @@ import org.springframework.stereotype.Service;
 import com.fireblocks.sdk.ApiException;
 import com.fireblocks.sdk.ApiResponse;
 import com.fireblocks.sdk.Fireblocks;
+import com.fireblocks.sdk.model.AssetWallet;
 import com.fireblocks.sdk.model.CreateAssetsRequest;
 import com.fireblocks.sdk.model.CreateTransactionResponse;
 import com.fireblocks.sdk.model.CreateVaultAccountRequest;
 import com.fireblocks.sdk.model.CreateVaultAccountRequest.VaultTypeEnum;
 import com.fireblocks.sdk.model.CreateVaultAssetResponse;
 import com.jejo.satchel.exception.AssetCustodianApiException;
+
+import lombok.extern.slf4j.Slf4j;
+
 import com.fireblocks.sdk.model.DestinationTransferPeerPath;
 import com.fireblocks.sdk.model.OneTimeAddress;
+import com.fireblocks.sdk.model.PaginatedAssetWalletResponse;
 import com.fireblocks.sdk.model.SourceTransferPeerPath;
 import com.fireblocks.sdk.model.TransactionRequest;
 import com.fireblocks.sdk.model.TransactionRequest.FeeLevelEnum;
@@ -31,8 +37,12 @@ import com.fireblocks.sdk.model.VaultAccount;
 import com.fireblocks.sdk.model.VaultAccountsPagedResponse;
 import com.fireblocks.sdk.model.VaultAsset;
 
+@Slf4j
 @Service
 public class AssetCustodianService {
+
+	@Value("#{${satchel.financial.assets.deposit-sweep-minimum}}")
+	private Map<String, BigDecimal> assetDepositSweepMinimums;
 
 	@Value("${satchel.custodian.account.withdrawal.id}")
 	public String withdrawalId;
@@ -73,6 +83,7 @@ public class AssetCustodianService {
 			CompletableFuture<ApiResponse<VaultAccount>> response = fireblocks.vaults()
 					.createVaultAccount(request, idempotencyKey);
 			vaultId = response.get().getData().getId();
+			log.info("Created vault account with name: {}, id: {}", vaultName, vaultId);
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());
@@ -88,12 +99,11 @@ public class AssetCustodianService {
 		String idempotencyKey = Integer.toString(new Random().nextInt());
 		try {
 			CompletableFuture<ApiResponse<CreateVaultAssetResponse>> response = fireblocks.vaults()
-					.createVaultAccountAsset(vaultAccountId.toString(), assetId, createAssetsRequest,
-							idempotencyKey);
+					.createVaultAccountAsset(vaultAccountId.toString(), assetId,
+							createAssetsRequest, idempotencyKey);
 			walletAddress = response.get().getData().getAddress();
-			System.out.println("Status code: " + response.get().getStatusCode());
-			System.out.println("Response headers: " + response.get().getHeaders());
-			System.out.println("Response body: " + response.get().getData());
+			log.info("Created vault wallet for vaultAccountId: {}, assetId: {}, address: {}",
+					vaultAccountId, assetId, walletAddress);
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());
@@ -122,9 +132,9 @@ public class AssetCustodianService {
 					.vaults().getPagedVaultAccounts(namePrefix, nameSuffix, minAmountThreshold,
 							assetId, orderBy, before, after, limit, tagIds);
 			accounts = response.get().getData().getAccounts();
-			System.out.println("Status code: " + response.get().getStatusCode());
-			System.out.println("Response headers: " + response.get().getHeaders());
-			System.out.println("Response body: " + response.get().getData());
+			log.info(
+					"Retrieved {} vault accounts with prefix: {}, suffix: {}, minAmountThreshold: {}, assetId: {}",
+					accounts.size(), namePrefix, nameSuffix, minAmountThreshold, assetId);
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());
@@ -134,15 +144,30 @@ public class AssetCustodianService {
 		return accounts;
 	}
 
+	public List<AssetWallet> findAllAssetWallets() {
+		List<AssetWallet> assets = new ArrayList<>();
+		try {
+			CompletableFuture<ApiResponse<PaginatedAssetWalletResponse>> response = fireblocks
+					.vaults().getAssetWallets(null, null, null, null, null, null);
+			log.info("Retrieved {} vault assets", assets.size());
+			assets = response.get().getData().getAssetWallets();
+		} catch (InterruptedException | ExecutionException e) {
+			ApiException apiException = (ApiException) e.getCause();
+			throw new AssetCustodianApiException(apiException.getResponseBody());
+		} catch (ApiException e) {
+			throw new AssetCustodianApiException(e.getResponseBody());
+		}
+		return assets;
+	}
+
 	public BigDecimal getVaultAccountAssetBalance(String vaultAccountId, String assetId) {
 		BigDecimal balance = BigDecimal.ZERO;
 		try {
 			CompletableFuture<ApiResponse<VaultAsset>> response = fireblocks.vaults()
 					.getVaultAccountAsset(vaultAccountId, assetId);
 			balance = new BigDecimal(response.get().getData().getTotal());
-			System.out.println("Status code: " + response.get().getStatusCode());
-			System.out.println("Response headers: " + response.get().getHeaders());
-			System.out.println("Response body: " + response.get().getData());
+			log.info("Retrieved balance for vaultAccountId: {}, assetId: {}. Balance: {}",
+					vaultAccountId, assetId, balance);
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());
@@ -152,15 +177,20 @@ public class AssetCustodianService {
 		return balance;
 	}
 
-	public void createTransactionsToOmnibus(List<VaultAccount> sourceAccounts) {
-		sourceAccounts.forEach(account -> {
+	public void sweepDepositsToOmnibus() {
+		List<VaultAccount> depositAccounts = findAllVaultAccountsByPrefixAndMinAmountAndAsset(
+				"deposit-", BigDecimal.ZERO, null);
+		depositAccounts.forEach(account -> {
 			account.getAssets().forEach(asset -> {
-				createTransaction(asset.getId(),
-						new SourceTransferPeerPath().id(account.getId())
-								.type(TransferPeerPathType.VAULT_ACCOUNT),
-						new DestinationTransferPeerPath().id(omnibusId)
-								.type(TransferPeerPathType.VAULT_ACCOUNT),
-						new BigDecimal(asset.getTotal()));
+				if (new BigDecimal(asset.getAvailable())
+						.compareTo(assetDepositSweepMinimums.get(asset.getId())) > 0) {
+					createTransaction(asset.getId(),
+							new SourceTransferPeerPath().id(account.getId())
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							new DestinationTransferPeerPath().id(omnibusId)
+									.type(TransferPeerPathType.VAULT_ACCOUNT),
+							new BigDecimal(asset.getAvailable()));
+				}
 			});
 		});
 	}
@@ -190,15 +220,15 @@ public class AssetCustodianService {
 			DestinationTransferPeerPath destination, BigDecimal amount) {
 		String transactionId = null;
 		TransactionRequest transactionRequest = new TransactionRequest().assetId(assetId)
-				.source(source).destination(destination).feeLevel(FeeLevelEnum.HIGH)
-				.amount(new TransactionRequestAmount(amount));
+				.treatAsGrossAmount(true).source(source).destination(destination)
+				.feeLevel(FeeLevelEnum.LOW).amount(new TransactionRequestAmount(amount));
 		try {
 			CompletableFuture<ApiResponse<CreateTransactionResponse>> response = fireblocks
 					.transactions().createTransaction(transactionRequest, null, null);
 			transactionId = response.get().getData().getId();
-			System.out.println("Status code: " + response.get().getStatusCode());
-			System.out.println("Response headers: " + response.get().getHeaders());
-			System.out.println("Response body: " + response.get().getData());
+			log.info(
+					"Created transaction with id: {}, assetId: {}, amount: {}, source: {}, destination: {}",
+					transactionId, assetId, amount, source.getId(), destination.getId());
 		} catch (InterruptedException | ExecutionException e) {
 			ApiException apiException = (ApiException) e.getCause();
 			throw new AssetCustodianApiException(apiException.getResponseBody());

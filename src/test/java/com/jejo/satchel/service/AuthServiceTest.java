@@ -37,7 +37,7 @@ public class AuthServiceTest {
 	@Mock
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 	@Mock
-	private MailService mailService;
+	private RestMailService mailService;
 	@Mock
 	private AssetCustodianService assetCustodianService;
 	@InjectMocks

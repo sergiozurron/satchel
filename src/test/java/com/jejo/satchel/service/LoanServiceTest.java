@@ -10,12 +10,14 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -46,6 +48,7 @@ class LoanServiceTest {
 	private static final Long USER_ID = 1L;
 	private static final String COLLATERAL_ASSET_ID = "TEST_BTC";
 	private static final String LOAN_ASSET_ID = "TEST_USDT";
+	private final Map<String, BigDecimal> assetInterestRates = Map.of("TEST_USDT", BigDecimal.valueOf(0.05));
 
 	@Mock
 	private CurrentUserProvider currentUserProvider;
@@ -70,19 +73,18 @@ class LoanServiceTest {
 	@Mock
 	private DepositWallet loanAssetWallet;
 
+	@InjectMocks
 	private LoanService loanService;
 
-	private static final BigDecimal INTEREST_RATE = BigDecimal.valueOf(0.05);
+	
 
 	@BeforeEach
 	void setUp() {
 		currentUser = User.builder().id(USER_ID).build();
 		loanService = new LoanService(currentUserProvider, loanRepository, depositWalletRepository,
 				assetCustodianService, bitcoinPriceService);
-		ReflectionTestUtils.setField(loanService, "collateralCoin", "ETH");
-		ReflectionTestUtils.setField(loanService, "repaymentPrefix", "REPAY-");
-		ReflectionTestUtils.setField(loanService, "interestRate", INTEREST_RATE);
 
+		ReflectionTestUtils.setField(loanService, "assetInterestRates", assetInterestRates);
 		when(currentUserProvider.getCurrentUser()).thenReturn(currentUser);
 	}
 
@@ -134,7 +136,7 @@ class LoanServiceTest {
 		assertThat(savedLoan.getReturnedAmount()).isEqualByComparingTo(BigDecimal.ZERO);
 		assertThat(savedLoan.getInterestRate()).isEqualByComparingTo(BigDecimal.valueOf(0.05));
 
-		BigDecimal expectedAccruedInterest = expectedLoanAmount.multiply(INTEREST_RATE)
+		BigDecimal expectedAccruedInterest = expectedLoanAmount.multiply(assetInterestRates.get(LOAN_ASSET_ID))
 				.divide(BigDecimal.valueOf(365), java.math.RoundingMode.HALF_UP);
 		assertThat(savedLoan.getAccruedInterest()).isEqualByComparingTo(expectedAccruedInterest);
 	}

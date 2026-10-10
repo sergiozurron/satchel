@@ -3,9 +3,9 @@ package com.jejo.satchel.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CustomLoanRequest;
@@ -29,12 +29,8 @@ import jakarta.transaction.Transactional;
 @Service
 public class LoanService {
 
-	@Value("${satchel.custodian.account.collateral.coin}")
-	private String collateralCoin;
-	@Value("${satchel.name.repayment.prefix}")
-	private String repaymentPrefix;
-	@Value("${satchel.financial.interest.apy}")
-	private BigDecimal interestRate;
+	@Value("#{${satchel.financial.assets.interest-rate}}")
+	private Map<String, BigDecimal> assetInterestRates;
 
 	private final CurrentUserProvider currentUserProvider;
 	private final LoanRepository loanRepository;
@@ -55,7 +51,8 @@ public class LoanService {
 	@Transactional
 	public void processLoanRequest(CustomLoanRequest loanRequest) {
 		User currentUser = currentUserProvider.getCurrentUser();
-		depositWalletRepository.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getCollateralAssetId())
+		depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getCollateralAssetId())
 				.ifPresent(collateralAccount -> {
 					if (loanRequest.getCollateralAmount()
 							.compareTo(collateralAccount.getAvailableBalance()) > 0) {
@@ -71,77 +68,73 @@ public class LoanService {
 					// Lock collateral in the collateral wallet
 					collateralAccount.setLockedBalance(loanRequest.getCollateralAmount());
 					depositWalletRepository.save(collateralAccount);
-					
+
 					// Credit loan amount to user's deposit wallet for the loan asset
+					String loanAssetId = loanRequest.getLoanAssetId();
 					DepositWallet loanAssetWallet = depositWalletRepository
-							.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getLoanAssetId())
-							.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(loanRequest.getLoanAssetId()));
+							.findByUserIdAndAssetId(currentUser.getId(), loanAssetId)
+							.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(
+									loanRequest.getLoanAssetId()));
 					loanAssetWallet.deposit(loanAmount);
 					depositWalletRepository.save(loanAssetWallet);
-					
+
 					LocalDateTime grantedAt = LocalDateTime.now();
+
 					loanRepository.save(Loan.builder().returnedAmount(BigDecimal.ZERO)
-							.loanAssetId(loanRequest.getLoanAssetId())
-							.amount(loanAmount).collateralAmount(loanRequest.getCollateralAmount())
+							.loanAssetId(loanAssetId).amount(loanAmount)
+							.collateralAmount(loanRequest.getCollateralAmount())
 							.collateralAssetId(loanRequest.getCollateralAssetId())
 							.ltv(loanRequest.getLtv()).interestRate(BigDecimal.valueOf(0.05))
 							.status(LoanStatus.ACTIVE)
-							.accruedInterest(loanAmount.multiply(interestRate).divide(BigDecimal.valueOf(365), RoundingMode.HALF_UP))
+							.accruedInterest(loanAmount
+									.multiply(assetInterestRates.get(loanAssetId))
+									.divide(BigDecimal.valueOf(365), RoundingMode.HALF_UP))
 							.grantedAt(grantedAt).user(currentUser).build());
 				});
-	}
-
-	@Scheduled(fixedRate = 3600000)
-	@Transactional
-	public void accrueInterestOnActiveLoans() {
-		BigDecimal hourlyInterestRate = interestRate.divide(BigDecimal.valueOf(365 * 24), 12, RoundingMode.HALF_UP);
-		loanRepository.findAllByStatus(LoanStatus.ACTIVE).forEach(loan -> {
-			BigDecimal interest = loan.getAmount().multiply(hourlyInterestRate);
-			loan.setAccruedInterest(loan.getAccruedInterest().add(interest));
-		});
 	}
 
 	@Transactional
 	public Loan repayLoan(Long loanId, BigDecimal repaymentAmount) {
 		User currentUser = currentUserProvider.getCurrentUser();
-		
+
 		// Find the loan by ID and verify ownership
 		Loan loan = loanRepository.findByIdAndUserId(loanId, currentUser.getId())
 				.orElseThrow(LoanNotFoundException::new);
-		
+
 		// Validate loan is active
 		if (!loan.getStatus().equals(LoanStatus.ACTIVE)) {
 			throw new LoanNotActiveException("Loan status is " + loan.getStatus());
 		}
-		
+
 		// Validate repayment amount
 		BigDecimal outstandingAmount = loan.getOutstandingAmount();
-		if (repaymentAmount.compareTo(BigDecimal.ZERO) <= 0 || repaymentAmount.compareTo(outstandingAmount) > 0) {
+		if (repaymentAmount.compareTo(BigDecimal.ZERO) <= 0
+				|| repaymentAmount.compareTo(outstandingAmount) > 0) {
 			throw new InvalidRepaymentAmountException();
 		}
-		
+
 		// Find deposit wallet for the loan asset and verify sufficient balance
 		DepositWallet depositWallet = depositWalletRepository
-				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId())
-				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(loan.getLoanAssetId()));
-		
+				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId()).orElseThrow(
+						() -> new DepositWalletNotFoundByAssetIdException(loan.getLoanAssetId()));
+
 		BigDecimal availableBalance = depositWallet.getAvailableBalance();
 		if (availableBalance.compareTo(repaymentAmount) < 0) {
 			throw new InsufficientFundsException();
 		}
-		
+
 		// Debit the deposit wallet
 		depositWallet.withdraw(repaymentAmount);
 		depositWalletRepository.save(depositWallet);
-		
+
 		// Update loan with repayment
 		loan.returnAmount(repaymentAmount);
-		
+
 		// Check if loan is fully paid and update status
 		if (loan.isPaidOut()) {
 			loan.setStatus(LoanStatus.PAID);
 		}
-		
+
 		return loanRepository.save(loan);
 	}
 

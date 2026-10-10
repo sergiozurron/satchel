@@ -13,12 +13,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
 import com.jejo.satchel.exception.AssetCustodianApiException;
+import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
-import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
+import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InvalidRepaymentAmountException;
 import com.jejo.satchel.exception.LoanNotActiveException;
@@ -30,11 +32,12 @@ import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	private static final String ERROR_DEPOSIT_WALLET_NOT_FOUND = "deposit_wallet_not_found";
-	private static final String ERROR_INVALID_REPAYMENT_AMOUNT = "invalid_repayment_amount";
-	private static final String ERROR_LOAN_NOT_ACTIVE = "loan_not_active";
-	private static final String ERROR_LOAN_NOT_FOUND = "loan_not_found";
-	private static final String ERROR_SELF_TRANSFER = "self_transfer";
+	public static final String ERROR_DEPOSIT_WALLET_ALREADY_EXISTS = "deposit_wallet_already_exists";
+	public static final String ERROR_DEPOSIT_WALLET_NOT_FOUND = "deposit_wallet_not_found";
+	public static final String ERROR_INVALID_REPAYMENT_AMOUNT = "invalid_repayment_amount";
+	public static final String ERROR_LOAN_NOT_ACTIVE = "loan_not_active";
+	public static final String ERROR_LOAN_NOT_FOUND = "loan_not_found";
+	public static final String ERROR_SELF_TRANSFER = "self_transfer";
 	public static final String ERROR_EMAIL_TAKEN = "email_taken";
 	public static final String ERROR_EMAIL_VERIFICATION_TOKEN_EXPIRED = "evt_expired";
 	public static final String ERROR_EMAIL_VERIFICATION_TOKEN_NOT_FOUND = "evt_not_found";
@@ -44,7 +47,7 @@ public class GlobalExceptionHandler {
 	public static final String ERROR_INTERNAL_SERVER_ERROR = "internal_server_error";
 	public static final String ERROR_UNVERIFIED_WEBHOOK = "unverified_webhook";
 	public static final String ERROR_ACCOUNTS_ALREADY_CREATED = "accounts_already_created";
-	private static final String ERROR_INSUFFICIENT_FUNDS = "insufficient_funds";
+	public static final String ERROR_INSUFFICIENT_FUNDS = "insufficient_funds";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
@@ -141,6 +144,24 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleDepositWalletNotFoundByAssetIdException(DepositWalletNotFoundByAssetIdException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(new ErrorResponse(ERROR_DEPOSIT_WALLET_NOT_FOUND, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(DepositWalletAlreadyExistsException.class)
+	public ResponseEntity<ErrorResponse> handleDepositWalletAlreadyExistsException(DepositWalletAlreadyExistsException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(new ErrorResponse(ERROR_DEPOSIT_WALLET_ALREADY_EXISTS, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(InsufficientCollateralException.class)
+	public ResponseEntity<ErrorResponse> handleInsufficientCollateralException(InsufficientCollateralException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
+	}
+	
+	@ExceptionHandler(ExcesiveEquivalentAmountException.class)
+	public ResponseEntity<ErrorResponse> handleExcesiveEquivalentAmountException(ExcesiveEquivalentAmountException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
 	}
 	
 	@ExceptionHandler(Exception.class)

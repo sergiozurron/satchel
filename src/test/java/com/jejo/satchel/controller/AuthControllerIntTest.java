@@ -1,5 +1,7 @@
 package com.jejo.satchel.controller;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +29,7 @@ import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.EmailVerificationTokenRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
+import com.jejo.satchel.service.AssetCustodianService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -47,6 +51,8 @@ public class AuthControllerIntTest {
 	private PasswordEncoder passwordEncoder;
 	@Autowired
 	private AuthTokenRepository authorizationTokenRepository;
+	@MockitoBean
+	private AssetCustodianService assetCustodianService;
 
 	@BeforeEach
 	void setup() {
@@ -104,6 +110,7 @@ public class AuthControllerIntTest {
 	@Test
 	void verifyEmail_shouldReturnOk_whenValidToken() throws Exception {
 		String token = "valid-token";
+		when(assetCustodianService.createVaultAccount(any())).thenReturn("vault-account-id");
 		emailVerificationTokenRepository.save(EmailVerificationToken
 				.builder().expiresAt(LocalDateTime.of(3000, 1, 1, 1, 1)).token(token).user(User.builder()
 						.firstName("fullName").lastName("lastName").email("email").password("password").build())
