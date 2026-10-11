@@ -1,6 +1,7 @@
 package com.jejo.satchel.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +31,7 @@ import com.jejo.satchel.repository.EmailVerificationTokenRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.service.AssetCustodianService;
+import com.jejo.satchel.service.MailService;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,6 +55,8 @@ public class AuthControllerIntTest {
 	private AuthTokenRepository authorizationTokenRepository;
 	@MockitoBean
 	private AssetCustodianService assetCustodianService;
+	@MockitoBean
+	private MailService mailService;
 
 	@BeforeEach
 	void setup() {
@@ -66,6 +70,7 @@ public class AuthControllerIntTest {
 
 	@Test
 	void signup_shouldReturnOk_whenValidRequest() throws Exception {
+		doNothing().when(mailService).sendActivationEmail(any(), any(), any());
 		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
 				.email("email@email.com").build();
 		mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
@@ -75,6 +80,7 @@ public class AuthControllerIntTest {
 
 	@Test
 	void signup_shouldReturnBadRequest_whenInvalidEmail() throws Exception {
+		doNothing().when(mailService).sendActivationEmail(any(), any(), any());
 		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
 				.email("invalid-email").build();
 
@@ -85,6 +91,7 @@ public class AuthControllerIntTest {
 
 	@Test
 	void signup_shouldReturnConflict_whenEmailAlreadyTaken() throws Exception {
+		doNothing().when(mailService).sendActivationEmail(any(), any(), any());
 		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
 				.email("email@email.com").build();
 		userRepository.save(User.builder().firstName("Juan").lastName("Doe").email("email@email.com")
@@ -97,6 +104,7 @@ public class AuthControllerIntTest {
 
 	@Test
 	void signup_shouldReturnOk_whenEmailAlreadyTakenButUnverified() throws Exception {
+		doNothing().when(mailService).sendActivationEmail(any(), any(), any());
 		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
 				.email("email@email.com").build();
 		userRepository.save(User.builder().firstName("Juan").lastName("Doe").email("email@email.com")
