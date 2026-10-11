@@ -49,46 +49,44 @@ public class LoanService {
 	}
 
 	@Transactional
-	public void processLoanRequest(CreateLoanRequest loanRequest) {
+	public Long processLoanRequest(CreateLoanRequest loanRequest) {
 		User currentUser = currentUserProvider.getCurrentUser();
-		depositWalletRepository
-				.findByUserIdAndAssetId(currentUser.getId(), loanRequest.getCollateralAssetId())
-				.ifPresent(collateralAccount -> {
-					BigDecimal collateralAmount = loanRequest.getCollateralAmount();
-					if (collateralAmount.compareTo(collateralAccount.getAvailableBalance()) > 0) {
-						throw new InsufficientCollateralException();
-					}
-					String loanAssetId = loanRequest.getLoanAssetId();
-					String collateralAssetId = loanRequest.getCollateralAssetId();
-					BigDecimal ltvCollateral = assetLtv.get(collateralAssetId)
-							.multiply(collateralAmount);
-					BigDecimal loanAmount = conversionRateService.convertCurrency(ltvCollateral,
-							collateralAssetId, loanAssetId);
-					BigDecimal omnibusBalance = assetCustodianService
-							.getOmnibusBalance(loanAssetId);
-					if (omnibusBalance.compareTo(loanAmount) < 0) {
-						throw new ExcesiveEquivalentAmountException(omnibusBalance);
-					}
-					// Lock collateral in the collateral wallet
-					collateralAccount.lockBalance(collateralAmount);
-					depositWalletRepository.save(collateralAccount);
+		String collateralAssetId = loanRequest.getCollateralAssetId();
+		DepositWallet collateralWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), collateralAssetId)
+				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(collateralAssetId));
+		String loanAssetId = loanRequest.getLoanAssetId();
+		BigDecimal collateralAmount = loanRequest.getCollateralAmount();
+		if (collateralAmount.compareTo(collateralWallet.getAvailableBalance()) > 0) {
+			throw new InsufficientCollateralException();
+		}
+		BigDecimal ltvCollateral = assetLtv.get(collateralAssetId).multiply(collateralAmount);
+		BigDecimal loanAmount = conversionRateService.convertCurrency(ltvCollateral,
+				collateralAssetId, loanAssetId);
+		BigDecimal omnibusBalance = assetCustodianService.getOmnibusBalance(loanAssetId);
+		if (omnibusBalance.compareTo(loanAmount) < 0) {
+			throw new ExcesiveEquivalentAmountException(omnibusBalance);
+		}
+		// Lock collateral in the collateral wallet
+		collateralWallet.lockBalance(collateralAmount);
+		depositWalletRepository.save(collateralWallet);
 
-					// Credit loan amount to user's deposit wallet for the loan asset
-					DepositWallet loanAssetWallet = depositWalletRepository
-							.findByUserIdAndAssetId(currentUser.getId(), loanAssetId).orElseThrow(
-									() -> new DepositWalletNotFoundByAssetIdException(loanAssetId));
-					loanAssetWallet.deposit(loanAmount);
-					depositWalletRepository.save(loanAssetWallet);
+		// Credit loan amount to user's deposit wallet for the loan asset
+		DepositWallet loanAssetWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loanAssetId)
+				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(loanAssetId));
+		loanAssetWallet.deposit(loanAmount);
+		depositWalletRepository.save(loanAssetWallet);
 
-					LocalDateTime grantedAt = LocalDateTime.now();
+		LocalDateTime grantedAt = LocalDateTime.now();
 
-					loanRepository.save(Loan.builder().returnedAmount(BigDecimal.ZERO)
-							.loanAssetId(loanAssetId).amount(loanAmount)
-							.collateralAmount(collateralAmount).collateralAssetId(collateralAssetId)
-							.interestRate(assetInterestRates.get(loanAssetId))
-							.status(LoanStatus.ACTIVE).accruedInterest(BigDecimal.ZERO)
-							.grantedAt(grantedAt).user(currentUser).build());
-				});
+		Loan newLoan = loanRepository.save(Loan.builder().returnedAmount(BigDecimal.ZERO)
+				.loanAssetId(loanAssetId).amount(loanAmount).collateralAmount(collateralAmount)
+				.collateralAssetId(collateralAssetId)
+				.interestRate(assetInterestRates.get(loanAssetId)).status(LoanStatus.ACTIVE)
+				.accruedInterest(BigDecimal.ZERO).grantedAt(grantedAt).user(currentUser).build());
+
+		return newLoan.getId();
 	}
 
 	@Transactional

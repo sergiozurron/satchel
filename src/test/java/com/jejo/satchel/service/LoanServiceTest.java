@@ -96,14 +96,17 @@ class LoanServiceTest {
 		loanRequest.setCollateralAmount(collateralAmount);
 
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
-				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN).lockedBalance(BigDecimal.ZERO).build()));
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
 		when(assetCustodianService.getOmnibusBalance(LOAN_ASSET_ID))
 				.thenReturn(BigDecimal.valueOf(1_000_000));
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, LOAN_ASSET_ID))
-				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN).lockedBalance(BigDecimal.ZERO).build()));
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
+		when(loanRepository.save(any(Loan.class))).thenReturn(Loan.builder().id(1L).build());
 
 		loanService.processLoanRequest(loanRequest);
 
@@ -111,14 +114,15 @@ class LoanServiceTest {
 	}
 
 	@Test
-	void processLoanRequest_noCollateralWallet_doesNothingSilently() {
+	void processLoanRequest_shouldThrowWalletNotFoundException_whenWalletNotFoundByAssetAndUser() {
 		CreateLoanRequest loanRequest = new CreateLoanRequest();
 		loanRequest.setCollateralAssetId(COLLATERAL_ASSET_ID);
 
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
 				.thenReturn(Optional.empty());
 
-		loanService.processLoanRequest(loanRequest);
+		assertThrows(DepositWalletNotFoundByAssetIdException.class,
+				() -> loanService.processLoanRequest(loanRequest));
 
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
@@ -134,7 +138,8 @@ class LoanServiceTest {
 		loanRequest.setCollateralAssetId(COLLATERAL_ASSET_ID);
 
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
-				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN).lockedBalance(BigDecimal.ZERO).build()));
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
 
 		assertThrows(InsufficientCollateralException.class,
 				() -> loanService.processLoanRequest(loanRequest));
@@ -158,7 +163,8 @@ class LoanServiceTest {
 		loanRequest.setCollateralAmount(collateralAmount);
 
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
-				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN).lockedBalance(BigDecimal.ZERO).build()));
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
@@ -188,8 +194,8 @@ class LoanServiceTest {
 		loanRequest.setCollateralAmount(collateralAmount);
 
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
-				.thenReturn(Optional.of(DepositWallet.builder()
-						.balance(BigDecimal.TEN).lockedBalance(BigDecimal.ZERO).build()));
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
