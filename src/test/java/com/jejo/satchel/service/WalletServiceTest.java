@@ -17,7 +17,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.jejo.satchel.dto.WalletResponse;
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.User;
@@ -113,7 +112,7 @@ public class WalletServiceTest {
 		when(depositWalletRepository.findAllByUserId(testUser.getId())).thenReturn(wallets);
 
 		// Act
-		List<WalletResponse> result = walletService.getAllUserWallets();
+		List<DepositWallet> result = walletService.getAllUserWallets();
 
 		// Assert
 		assertThat(result).isNotNull();
@@ -139,7 +138,7 @@ public class WalletServiceTest {
 		when(depositWalletRepository.findAllByUserId(testUser.getId())).thenReturn(Arrays.asList());
 
 		// Act
-		List<WalletResponse> result = walletService.getAllUserWallets();
+		List<DepositWallet> result = walletService.getAllUserWallets();
 
 		// Assert
 		assertThat(result).isNotNull();
@@ -148,7 +147,7 @@ public class WalletServiceTest {
 	}
 
 	@Test
-	void getAllUserWallets_shouldMapWalletPropertiesCorrectly() {
+	void getAllUserWallets_shouldReturnTheStoredWallet() {
 		// Arrange
 		LocalDateTime openedAt = LocalDateTime.now().minusDays(7);
 		DepositWallet wallet = DepositWallet.builder().id(5L).address("0x5555555555555555")
@@ -160,19 +159,12 @@ public class WalletServiceTest {
 				.thenReturn(Arrays.asList(wallet));
 
 		// Act
-		List<WalletResponse> result = walletService.getAllUserWallets();
+		List<DepositWallet> result = walletService.getAllUserWallets();
 
 		// Assert
-		assertThat(result).hasSize(1);
-		WalletResponse response = result.get(0);
-		assertThat(response.getId()).isEqualTo(5L);
-		assertThat(response.getAddress()).isEqualTo("0x5555555555555555");
-		assertThat(response.getAssetId()).isEqualTo("USDC_ETH_TEST5_AN74");
-		assertThat(response.getBalance()).isEqualByComparingTo(new BigDecimal("250.75"));
-		assertThat(response.getLockedBalance()).isEqualByComparingTo(new BigDecimal("50.25"));
-		assertThat(response.getAvailableBalance()).isEqualByComparingTo(new BigDecimal("200.50"));
-		assertThat(response.getOpenedAt()).isEqualTo(openedAt);
-		assertThat(response.getDaysSinceOpened()).isEqualTo(7L);
+		assertThat(result).containsExactly(wallet);
+		assertThat(result.get(0).getAvailableBalance()).isEqualByComparingTo(new BigDecimal("200.50"));
+		assertThat(result.get(0).daysSinceOpened()).isEqualTo(7L);
 	}
 
 	@Test
@@ -188,7 +180,7 @@ public class WalletServiceTest {
 				.thenReturn(Arrays.asList(wallet));
 
 		// Act
-		List<WalletResponse> result = walletService.getAllUserWallets();
+		List<DepositWallet> result = walletService.getAllUserWallets();
 
 		// Assert
 		assertThat(result.get(0).getAvailableBalance())

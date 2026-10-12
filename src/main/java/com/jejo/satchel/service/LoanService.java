@@ -4,13 +4,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
-import com.jejo.satchel.dto.LoanResponse;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
@@ -132,20 +130,9 @@ public class LoanService {
 	}
 
 	@Transactional
-	public List<LoanResponse> getAllUserLoans() {
+	public List<Loan> getAllUserLoans() {
 		User currentUser = currentUserProvider.getCurrentUser();
-		return loanRepository.findAllByUserIdOrderByGrantedAtDesc(currentUser.getId()).stream()
-				.map(this::mapToLoanResponse).collect(Collectors.toList());
-	}
-
-	public LoanResponse mapToLoanResponse(Loan loan) {
-		return LoanResponse.builder().id(loan.getId()).loanAssetId(loan.getLoanAssetId())
-				.amount(loan.getAmount()).returnedAmount(loan.getReturnedAmount())
-				.outstandingAmount(loan.getOutstandingAmount())
-				.collateralAssetId(loan.getCollateralAssetId())
-				.collateralAmount(loan.getCollateralAmount()).interestRate(loan.getInterestRate())
-				.status(loan.getStatus()).accruedInterest(loan.getAccruedInterest())
-				.grantedAt(loan.getGrantedAt()).build();
+		return loanRepository.findAllByUserIdOrderByGrantedAtDesc(currentUser.getId());
 	}
 
 }

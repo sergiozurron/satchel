@@ -3,11 +3,9 @@ package com.jejo.satchel.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
-import com.jejo.satchel.dto.WalletResponse;
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.User;
@@ -52,26 +50,9 @@ public class WalletService {
     }
 
     @Transactional
-    public List<WalletResponse> getAllUserWallets() {
+    public List<DepositWallet> getAllUserWallets() {
         Long userId = currentUserProvider.getCurrentUser().getId();
-        return depositWalletRepository.findAllByUserId(userId)
-                .stream()
-                .map(this::mapToWalletResponse)
-                .collect(Collectors.toList());
-    }
-
-    private WalletResponse mapToWalletResponse(DepositWallet wallet) {
-        return WalletResponse.builder()
-                .id(wallet.getId())
-                .address(wallet.getAddress())
-                .assetId(wallet.getAssetId())
-                .balance(wallet.getBalance())
-                .lockedBalance(wallet.getLockedBalance())
-                .availableBalance(wallet.getAvailableBalance())
-                .accruedInterest(wallet.getAccruedInterest())
-                .openedAt(wallet.getOpenedAt())
-                .daysSinceOpened(wallet.daysSinceOpened())
-                .build();
+        return depositWalletRepository.findAllByUserId(userId);
     }
 
 }

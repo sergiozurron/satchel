@@ -14,6 +14,7 @@ import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.dto.LoanResponse;
 import com.jejo.satchel.dto.Response;
+import com.jejo.satchel.mapper.LoanMapper;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.service.LoanService;
 
@@ -24,14 +25,16 @@ import jakarta.validation.Valid;
 public class LoanController {
 
 	private final LoanService loanService;
+	private final LoanMapper loanMapper;
 	
-	public LoanController(LoanService loanService) {
+	public LoanController(LoanService loanService, LoanMapper loanMapper) {
 		this.loanService = loanService;
+		this.loanMapper = loanMapper;
 	}
 
 	@GetMapping
 	public ResponseEntity<List<LoanResponse>> getAllUserLoans() {
-		return ResponseEntity.ok(loanService.getAllUserLoans());
+		return ResponseEntity.ok(loanMapper.toLoanResponses(loanService.getAllUserLoans()));
 	}
 	
 	@PostMapping
@@ -43,7 +46,7 @@ public class LoanController {
 	@PutMapping
 	public ResponseEntity<LoanResponse> repayLoan(@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
 		Loan updatedLoan = loanService.repayLoan(repaymentRequest.getLoanId(), repaymentRequest.getAmount());
-		return ResponseEntity.ok(loanService.mapToLoanResponse(updatedLoan));
+		return ResponseEntity.ok(loanMapper.toLoanResponse(updatedLoan));
 	}
 	
 }

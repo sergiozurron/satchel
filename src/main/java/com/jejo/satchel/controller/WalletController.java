@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jejo.satchel.dto.CreateDepositWalletRequest;
 import com.jejo.satchel.dto.Response;
 import com.jejo.satchel.dto.WalletResponse;
+import com.jejo.satchel.mapper.WalletMapper;
 import com.jejo.satchel.service.WalletService;
 
 import jakarta.validation.Valid;
@@ -23,15 +24,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 public class WalletController {
     
     public final WalletService walletService;
+    public final WalletMapper walletMapper;
 
-    public WalletController(WalletService walletService) {
+    public WalletController(WalletService walletService, WalletMapper walletMapper) {
         this.walletService = walletService;
+        this.walletMapper = walletMapper;
     }
 
     @GetMapping
     public ResponseEntity<List<WalletResponse>> getAllUserWallets(){
-        List<WalletResponse> wallets = walletService.getAllUserWallets();
-        return ResponseEntity.ok(wallets);
+        return ResponseEntity.ok(walletMapper.toWalletResponses(walletService.getAllUserWallets()));
     }
 
     @PostMapping

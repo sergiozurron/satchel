@@ -24,7 +24,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
-import com.jejo.satchel.dto.LoanResponse;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientFundsException;
@@ -561,7 +560,7 @@ class LoanServiceTest {
 	// ========== getAllUserLoans tests ==========
 
 	@Test
-	void getAllUserLoans_shouldMapEveryFieldAndPreserveRepositoryOrder() {
+	void getAllUserLoans_shouldPreserveRepositoryOrder() {
 		User user = createTestUser();
 		LocalDateTime newerGrantedAt = LocalDateTime.of(2026, 3, 2, 12, 0);
 		LocalDateTime olderGrantedAt = LocalDateTime.of(2026, 1, 1, 8, 0);
@@ -583,24 +582,10 @@ class LoanServiceTest {
 		when(loanRepository.findAllByUserIdOrderByGrantedAtDesc(USER_ID))
 				.thenReturn(List.of(newer, older));
 
-		List<LoanResponse> result = loanService.getAllUserLoans();
+		List<Loan> result = loanService.getAllUserLoans();
 
-		assertThat(result).hasSize(2);
-		LoanResponse first = result.get(0);
-		assertThat(first.getId()).isEqualTo(2L);
-		assertThat(first.getLoanAssetId()).isEqualTo("USDC");
-		assertThat(first.getAmount()).isEqualByComparingTo("500");
-		assertThat(first.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(first.getOutstandingAmount()).isEqualByComparingTo("505");
-		assertThat(first.getCollateralAssetId()).isEqualTo("ETH");
-		assertThat(first.getCollateralAmount()).isEqualByComparingTo("0.5");
-		assertThat(first.getInterestRate()).isEqualByComparingTo("0.05");
-		assertThat(first.getStatus()).isEqualTo(LoanStatus.ACTIVE);
-		assertThat(first.getAccruedInterest()).isEqualByComparingTo("5");
-		assertThat(first.getGrantedAt()).isEqualTo(newerGrantedAt);
-
-		assertThat(result.get(1).getId()).isEqualTo(1L);
-		assertThat(result.get(1).getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(result).containsExactly(newer, older);
+		assertThat(result.get(0).getOutstandingAmount()).isEqualByComparingTo("505");
 		assertThat(result.get(1).getOutstandingAmount()).isEqualByComparingTo("91");
 		verify(loanRepository).findAllByUserIdOrderByGrantedAtDesc(USER_ID);
 	}
@@ -609,7 +594,7 @@ class LoanServiceTest {
 	void getAllUserLoans_shouldReturnEmptyList() {
 		when(loanRepository.findAllByUserIdOrderByGrantedAtDesc(USER_ID)).thenReturn(List.of());
 
-		List<LoanResponse> result = loanService.getAllUserLoans();
+		List<Loan> result = loanService.getAllUserLoans();
 
 		assertThat(result).isNotNull();
 		assertThat(result).isEmpty();
