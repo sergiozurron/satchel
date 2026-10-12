@@ -14,6 +14,7 @@ import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.dto.LoanResponse;
 import com.jejo.satchel.dto.Response;
+import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.service.LoanService;
 
 import jakarta.validation.Valid;
@@ -40,9 +41,9 @@ public class LoanController {
 	}
 	
 	@PutMapping
-	public ResponseEntity<Void> repayLoan(@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
-		loanService.repayLoan(repaymentRequest.getLoanId(), repaymentRequest.getAmount());
-		return ResponseEntity.ok(null);
+	public ResponseEntity<LoanResponse> repayLoan(@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
+		Loan updatedLoan = loanService.repayLoan(repaymentRequest.getLoanId(), repaymentRequest.getAmount());
+		return ResponseEntity.ok(loanService.mapToLoanResponse(updatedLoan));
 	}
 	
 }

@@ -123,7 +123,7 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(LoanNotActiveException.class)
 	public ResponseEntity<ErrorResponse> handleLoanNotActiveException(LoanNotActiveException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+		return ResponseEntity.status(HttpStatus.CONFLICT)
 				.body(new ErrorResponse(ERROR_LOAN_NOT_ACTIVE, ex.getMessage()));
 	}
 	

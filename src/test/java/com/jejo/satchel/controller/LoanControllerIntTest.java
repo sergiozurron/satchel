@@ -104,13 +104,27 @@ public class LoanControllerIntTest {
 		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
-				.andExpect(status().isOk());
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.id", Matchers.equalTo(activeLoan.getId().intValue())))
+				.andExpect(jsonPath("$.loanAssetId", Matchers.equalTo("USDC")))
+				.andExpect(jsonPath("$.amount", Matchers.equalTo(500.0)))
+				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(100.0)))
+				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(405.0)))
+				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH")))
+				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.0)))
+				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
+				.andExpect(jsonPath("$.user").doesNotExist())
+				.andExpect(jsonPath("$.password").doesNotExist());
 	}
 
 	@Test
 	void repayLoan_shouldReturnOk_whenFullRepaymentSuccessful() throws Exception {
 		// Given
-		BigDecimal repaymentAmount = new BigDecimal("500.0000000");
+		BigDecimal repaymentAmount = new BigDecimal("505.0000000");
 		LoanRepaymentRequest repaymentRequest = LoanRepaymentRequest.builder()
 				.loanId(activeLoan.getId()).amount(repaymentAmount).build();
 
@@ -118,7 +132,11 @@ public class LoanControllerIntTest {
 		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
-				.andExpect(status().isOk());
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(505.0)))
+				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(0.0)))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("PAID")));
 	}
 
 	@Test
@@ -178,7 +196,7 @@ public class LoanControllerIntTest {
 		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
-				.andExpect(status().isBadRequest());
+				.andExpect(status().isConflict());
 	}
 
 	@Test
@@ -300,7 +318,10 @@ public class LoanControllerIntTest {
 		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(secondRequest)))
-				.andExpect(status().isOk());
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(300.0)))
+				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(205.0)))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")));
 	}
 
 	@Test

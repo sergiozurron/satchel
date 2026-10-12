@@ -138,7 +138,7 @@ public class LoanService {
 				.map(this::mapToLoanResponse).collect(Collectors.toList());
 	}
 
-	private LoanResponse mapToLoanResponse(Loan loan) {
+	public LoanResponse mapToLoanResponse(Loan loan) {
 		return LoanResponse.builder().id(loan.getId()).loanAssetId(loan.getLoanAssetId())
 				.amount(loan.getAmount()).returnedAmount(loan.getReturnedAmount())
 				.outstandingAmount(loan.getOutstandingAmount())
