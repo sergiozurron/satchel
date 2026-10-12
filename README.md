@@ -308,6 +308,7 @@ The response includes the remaining outstanding amount and the new loan status (
 | GET    | `/api/v1/wallets`                     | List user’s deposit wallets          | Yes           |
 | POST   | `/api/v1/wallets`                     | Create a deposit wallet for an asset | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
+| GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan                   | Yes           |
 | POST   | `/api/v1/loans/repayment`             | Repay (part of) a loan               | Yes           |
 | POST   | `/api/v1/funds_transfer/funds_transfer` | Fireblocks webhook receiver        | (webhook)     |

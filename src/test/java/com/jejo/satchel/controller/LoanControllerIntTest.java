@@ -1,12 +1,16 @@
 package com.jejo.satchel.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -297,6 +301,88 @@ public class LoanControllerIntTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(secondRequest)))
 				.andExpect(status().isOk());
+	}
+
+	@Test
+	void getAllUserLoans_shouldReturnTheCurrentUsersLoan() throws Exception {
+		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(1)))
+				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
+				.andExpect(jsonPath("$[0].loanAssetId", Matchers.equalTo("USDC")))
+				.andExpect(jsonPath("$[0].amount", Matchers.equalTo(500.0)))
+				.andExpect(jsonPath("$[0].returnedAmount", Matchers.equalTo(0.0)))
+				.andExpect(jsonPath("$[0].outstandingAmount", Matchers.equalTo(505.0)))
+				.andExpect(jsonPath("$[0].collateralAssetId", Matchers.equalTo("ETH")))
+				.andExpect(jsonPath("$[0].collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$[0].interestRate", Matchers.equalTo(0.05)))
+				.andExpect(jsonPath("$[0].status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$[0].accruedInterest", Matchers.equalTo(5.0)))
+				.andExpect(jsonPath("$[0].grantedAt", Matchers.notNullValue()))
+				.andExpect(jsonPath("$[0].user").doesNotExist())
+				.andExpect(jsonPath("$[0].password").doesNotExist());
+	}
+
+	@Test
+	void getAllUserLoans_shouldReturnOnlyTheCallersLoans() throws Exception {
+		User otherUser = User.builder().firstName("Jane").lastName("Smith")
+				.email("other-loans@example.com").password(passwordEncoder.encode("password123"))
+				.verified(true).vaultAccountId("456").build();
+		otherUser = userRepository.save(otherUser);
+		String otherJwt = jwtUtil.generateToken(otherUser);
+		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
+
+		Loan otherLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
+				.collateralAssetId("ETH").returnedAmount(BigDecimal.ZERO)
+				.amount(new BigDecimal("20.0000000")).collateralAmount(new BigDecimal("0.1000000"))
+				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(otherUser)
+				.build());
+
+		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk()).andExpect(jsonPath("$", Matchers.hasSize(1)))
+				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
+				.andExpect(jsonPath("$[0].id",
+						Matchers.not(Matchers.equalTo(otherLoan.getId().intValue()))));
+	}
+
+	@Test
+	void getAllUserLoans_shouldReturnEveryStatusNewestFirst() throws Exception {
+		Loan paidLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
+				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
+				.amount(new BigDecimal("100.0000000"))
+				.collateralAmount(new BigDecimal("0.2000000"))
+				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
+				.accruedInterest(BigDecimal.ZERO)
+				.grantedAt(activeLoan.getGrantedAt().minusDays(2)).user(testUser).build());
+
+		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk()).andExpect(jsonPath("$", Matchers.hasSize(2)))
+				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
+				.andExpect(jsonPath("$[0].status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$[1].id", Matchers.equalTo(paidLoan.getId().intValue())))
+				.andExpect(jsonPath("$[1].status", Matchers.equalTo("PAID")));
+	}
+
+	@Test
+	void getAllUserLoans_shouldReturnEmptyList_whenUserHasNoLoans() throws Exception {
+		User otherUser = User.builder().firstName("Jane").lastName("Smith")
+				.email("noloans@example.com").password(passwordEncoder.encode("password123"))
+				.verified(true).vaultAccountId("789").build();
+		otherUser = userRepository.save(otherUser);
+		String otherJwt = jwtUtil.generateToken(otherUser);
+		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
+
+		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(0)));
+	}
+
+	@Test
+	void getAllUserLoans_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
+		mockMvc.perform(get("/api/v1/loans")).andExpect(status().isForbidden());
 	}
 
 }

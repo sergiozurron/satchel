@@ -11,6 +11,7 @@ import com.jejo.satchel.model.LoanStatus;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
 	public List<Loan> findAllByStatus(LoanStatus status);
+	public List<Loan> findAllByUserIdOrderByGrantedAtDesc(Long userId);
 	public List<Loan> findAllByUserIdAndStatusOrderByInterestRateDesc(Long userId, LoanStatus status);
 	public List<Loan> findAllByGrantedAtAndStatus(LocalDateTime grantedAt, LoanStatus status);
 	public Optional<Loan> findByIdAndUserId(Long loanId, Long userId);
