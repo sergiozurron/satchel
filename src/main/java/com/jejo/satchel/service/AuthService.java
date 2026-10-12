@@ -37,13 +37,12 @@ public class AuthService {
 	private final AuthenticationManager authenticationManager;
 	private final AuthTokenRepository authTokenRepository;
 	private final JwtUtil jwtUtil;
-	private final AssetCustodianService assetCustodianService;
 	private final AuthMapper authMapper = AuthMapper.INSTANCE;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-			EmailVerificationTokenRepository emailVerificationTokenRepository, MailService mailService,
-			AuthenticationManager authenticationManager, AuthTokenRepository authorizationTokenRepository,
-			JwtUtil jwtUtil, AssetCustodianService assetCustodianService) {
+			EmailVerificationTokenRepository emailVerificationTokenRepository,
+			MailService mailService, AuthenticationManager authenticationManager,
+			AuthTokenRepository authorizationTokenRepository, JwtUtil jwtUtil) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.emailVerificationTokenRepository = emailVerificationTokenRepository;
@@ -51,7 +50,6 @@ public class AuthService {
 		this.authenticationManager = authenticationManager;
 		this.authTokenRepository = authorizationTokenRepository;
 		this.jwtUtil = jwtUtil;
-		this.assetCustodianService = assetCustodianService;
 	}
 
 	@Transactional
@@ -72,7 +70,8 @@ public class AuthService {
 
 	@Transactional
 	public void verifyEmail(String token) {
-		EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(token)
+		EmailVerificationToken verificationToken = emailVerificationTokenRepository
+				.findByToken(token)
 				.orElseThrow(() -> new EmailVerificationTokenNotFoundException(token));
 		if (verificationToken.isExpired()) {
 			throw new EmailVerificationTokenExpiredException(token);
@@ -87,16 +86,14 @@ public class AuthService {
 		verificationToken.setUsed(true);
 		emailVerificationTokenRepository.save(verificationToken);
 		user.setVerified(true);
-		String vaultId = assetCustodianService.createVaultAccount("deposit-" + user.getId());
-		user.setVaultAccountId(vaultId);
 		userRepository.save(user);
 	}
 
 	public String login(LoginRequest loginRequest) {
 		String username = loginRequest.getEmail();
 		// Throws AuthenticationException
-		authenticationManager
-				.authenticate(new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
+		authenticationManager.authenticate(
+				new UsernamePasswordAuthenticationToken(username, loginRequest.getPassword()));
 		// So, the following code won't be executed if authentication fails
 		User user = userRepository.findByEmail(username).get();
 		authTokenRepository.findAllByUser(user).forEach(token -> {
@@ -114,8 +111,8 @@ public class AuthService {
 	private String generateEmailVerificationToken(User user) {
 		String token = UUID.randomUUID().toString();
 		// Expires in 24 hours
-		EmailVerificationToken verificationToken = EmailVerificationToken.builder().token(token).user(user)
-				.expiresAt(LocalDateTime.now().plusHours(24)).build();
+		EmailVerificationToken verificationToken = EmailVerificationToken.builder().token(token)
+				.user(user).expiresAt(LocalDateTime.now().plusHours(24)).build();
 		emailVerificationTokenRepository.save(verificationToken);
 		return token;
 	}

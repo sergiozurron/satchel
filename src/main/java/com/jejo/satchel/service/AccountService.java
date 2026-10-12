@@ -14,7 +14,6 @@ import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
-import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
@@ -67,9 +66,7 @@ public class AccountService {
 		if (txDetails.getDestinationAddress().equals(omnibusAddress)
 				|| txDetails.getSourceAddress().equals(gasStationAddress)
 				|| !txDetails.getStatus().equals(transactionStatusCompleted)
-				|| !txDetails.getSubStatus().equals(transactionSubstatusConfirmed)
-				|| fundsTransferRepository.existsByTransactionIdAndIsCompleted(txDetails.getId(),
-						true)) {
+				|| !txDetails.getSubStatus().equals(transactionSubstatusConfirmed)) {
 			return;
 		}
 		if (txDetails.getSourceAddress().equals(omnibusAddress)) {
@@ -90,8 +87,8 @@ public class AccountService {
 					txDetails.getDestinationAddress(), txDetails.getAssetId()).get();
 			depositWallet.deposit(new BigDecimal(txDetails.getAmountInfo().getAmount()));
 			depositWalletRepository.save(depositWallet);
-			fundsTransferRepository.save(FundsTransfer.builder().transactionId(txDetails.getId())
-					.depositWallet(depositWallet).counterpartyAddress(txDetails.getSourceAddress())
+			fundsTransferRepository.save(FundsTransfer.builder().depositWallet(depositWallet)
+					.counterpartyAddress(txDetails.getSourceAddress())
 					.amount(new BigDecimal(txDetails.getAmountInfo().getAmount()))
 					.timestamp(LocalDateTime.now()).isCompleted(true).build());
 			log.info("Deposit completed for txId: {}. Updated wallet balance: {}",
@@ -102,10 +99,10 @@ public class AccountService {
 
 	@Transactional
 	public void initiateWithdrawal(WithdrawalRequest withdrawalRequest) {
-		User user = currentUserProvider.getCurrentUser();
+		Long userId = currentUserProvider.getCurrentUser().getId();
 		String assetId = withdrawalRequest.getAssetId();
 		DepositWallet depositWallet = depositWalletRepository
-				.findByUserIdAndAssetId(user.getId(), assetId)
+				.findByUserIdAndAssetId(userId, assetId)
 				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(
 						withdrawalRequest.getAssetId()));
 		if (withdrawalRequest.getAmount().compareTo(depositWallet.getAvailableBalance()) >= 0) {
@@ -116,7 +113,7 @@ public class AccountService {
 		depositWalletRepository
 				.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), assetId)
 				.ifPresentOrElse(destinationWallet -> {
-					if (destinationWallet.getUser().getId().equals(user.getId())) {
+					if (destinationWallet.getUser().getId().equals(userId)) {
 						throw new SelfTransferException();
 					}
 					// Transfer between two internal accounts: no blockchain transaction needed
@@ -136,15 +133,14 @@ public class AccountService {
 									.timestamp(LocalDateTime.now()).isCompleted(true).build());
 				}, () -> {
 					// Transfer to external account
-					String txId = assetCustodianService.createTransactionFromOmnibus(assetId,
-							withdrawalRequest.getDestinationAddress(),
-							withdrawalRequest.getAmount());
+					assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
+							userId, withdrawalRequest.getDestinationAddress());
 					// isCompleted is false because we will wait for the webhook to confirm the
 					// transaction and credit the user's account
 					fundsTransferRepository.save(FundsTransfer.builder()
 							.depositWallet(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
-							.transactionId(txId).amount(withdrawalRequest.getAmount().negate())
+							.amount(withdrawalRequest.getAmount().negate())
 							.timestamp(LocalDateTime.now()).isCompleted(false).build());
 				});
 	}

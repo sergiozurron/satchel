@@ -69,7 +69,6 @@ public class WalletControllerIntTest {
 	private User testUser;
 	private String jwtToken;
 	private String testAssetId;
-	private String testVaultAccountId;
 	private String testWalletAddress;
 
 
@@ -93,7 +92,6 @@ public class WalletControllerIntTest {
 				.build());
 
 		testAssetId = "USDC_ETH_TEST5_AN74";
-		testVaultAccountId = "100";
 		testWalletAddress = "0xabc";
 	}
 
@@ -109,9 +107,8 @@ public class WalletControllerIntTest {
 	@Test
 	void createDepositWallet_shouldReturnOkAndCreateWallet_WhenValidRequest() throws Exception {
 		// Arrange
-		testUser.setVaultAccountId(testVaultAccountId);
 		testUser = userRepository.save(testUser);
-		when(assetCustodianService.createVaultWallet(testVaultAccountId, testAssetId))
+		when(assetCustodianService.getDepositAddress(testUser.getId(), testAssetId))
 				.thenReturn(testWalletAddress);
 
 		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
@@ -133,7 +130,7 @@ public class WalletControllerIntTest {
 		assertThat(saved.getAddress()).isEqualTo(testWalletAddress);
 		assertThat(saved.getAssetId()).isEqualTo(testAssetId);
 		assertThat(saved.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
-		verify(assetCustodianService).createVaultWallet(testVaultAccountId, testAssetId);
+		verify(assetCustodianService).getDepositAddress(testUser.getId(), testAssetId);
 	}
 
 	@Test 
@@ -162,7 +159,7 @@ public class WalletControllerIntTest {
 				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_DEPOSIT_WALLET_ALREADY_EXISTS))
 				.andExpect(jsonPath("$.message").value(
 						"Deposit wallet for asset " + testAssetId + " already exists for the current user."));
-		verify(assetCustodianService, never()).createVaultWallet(any(), any());
+		verify(assetCustodianService, never()).getDepositAddress(any(), any());
 	}
 
 	// Tests for GET /api/v1/wallets endpoint

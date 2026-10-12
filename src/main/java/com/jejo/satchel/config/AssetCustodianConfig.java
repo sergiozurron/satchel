@@ -4,23 +4,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import com.fireblocks.sdk.BasePath;
-import com.fireblocks.sdk.ConfigurationOptions;
-import com.fireblocks.sdk.Fireblocks;
+import com.jejo.satchel.service.AssetCustodianService;
+import com.jejo.satchel.service.FireblocksService;
 
 @Configuration
 public class AssetCustodianConfig {
 
-	@Value("${satchel.custodian.api.key}")
-	private String apiKey;
-	@Value("${satchel.custodian.api.secret}")
-	private String secretKey;
-	
 	@Bean
-	Fireblocks custodianRestClient() {
-		ConfigurationOptions configurationOptions = new ConfigurationOptions().basePath(BasePath.Sandbox)
-				.apiKey(apiKey).secretKey(secretKey);
-		return new Fireblocks(configurationOptions);
+	AssetCustodianService assetCustodianService(
+			@Value("${satchel.custodian.api.key}") String apiKey,
+			@Value("${satchel.custodian.api.secret}") String secretKey) {
+		return new FireblocksService(apiKey, secretKey);
 	}
 
 }

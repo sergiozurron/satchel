@@ -25,12 +25,14 @@ import com.jejo.satchel.exception.InvalidRepaymentAmountException;
 import com.jejo.satchel.exception.LoanNotActiveException;
 import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.exception.SelfTransferException;
+import com.jejo.satchel.exception.UnableToGetAddressException;
 import com.jejo.satchel.exception.UnverifiedWebhookException;
 import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	public static final String UNABLE_TO_GET_ADDRESS = "unable_to_get_address";
 	public static final String ERROR_DEPOSIT_WALLET_ALREADY_EXISTS = "deposit_wallet_already_exists";
 	public static final String ERROR_DEPOSIT_WALLET_NOT_FOUND = "deposit_wallet_not_found";
 	public static final String ERROR_INVALID_REPAYMENT_AMOUNT = "invalid_repayment_amount";
@@ -156,6 +158,12 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
 	}
+	
+	@ExceptionHandler(UnableToGetAddressException.class)
+	public ResponseEntity<ErrorResponse> handleUnableToGetAddressException(UnableToGetAddressException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(new ErrorResponse(UNABLE_TO_GET_ADDRESS, ex.getMessage()));
+	} 
 	
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {

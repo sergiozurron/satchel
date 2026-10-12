@@ -7,16 +7,13 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
+import com.jejo.satchel.exception.UnableToGetAddressException;
 import com.jejo.satchel.model.DepositWallet;
-import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.util.CurrentUserProvider;
 
 import jakarta.transaction.Transactional;
 
-/**
- * WalletService
- */
 @Service
 public class WalletService {
 
@@ -33,11 +30,14 @@ public class WalletService {
 
     @Transactional
     public void createDepositWallet(String assetId) {
-        User currentUser= currentUserProvider.getCurrentUser();
-        if (depositWalletRepository.findByUserIdAndAssetId(currentUser.getId(), assetId).isPresent()) {
+        Long currentUser= currentUserProvider.getCurrentUser().getId();
+        if (depositWalletRepository.findByUserIdAndAssetId(currentUser, assetId).isPresent()) {
         	throw new DepositWalletAlreadyExistsException(assetId);
 		}
-        String walletAddress = assetCustodianService.createVaultWallet(currentUser.getVaultAccountId(), assetId);
+        String walletAddress = assetCustodianService.getDepositAddress(currentUser, assetId);
+        if (walletAddress == null) {
+        	throw new UnableToGetAddressException();
+        }
         DepositWallet depositWallet = new DepositWallet();
         depositWallet.setAddress(walletAddress);
         depositWallet.setUser(currentUserProvider.getCurrentUser());

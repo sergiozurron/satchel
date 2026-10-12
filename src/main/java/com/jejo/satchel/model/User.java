@@ -40,7 +40,6 @@ public class User implements UserDetails {
 	@Builder.Default
 	@Column(nullable = false)
 	private boolean verified = false;
-	private String vaultAccountId;
 	
 	@Override
 	public Collection<? extends GrantedAuthority> getAuthorities() {

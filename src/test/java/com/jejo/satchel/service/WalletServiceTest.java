@@ -49,8 +49,7 @@ public class WalletServiceTest {
 	void setUp() {
 		// Set up test data
 		testUser = User.builder().id(1L).firstName("John").lastName("Doe")
-				.email("john.doe@example.com").password("password123").vaultAccountId("100")
-				.build();
+				.email("john.doe@example.com").password("password123").build();
 
 		testAssetId = "USDC_ETH_TEST5_AN74";
 		walletAddress = "0x1234567890abcdef";
@@ -60,7 +59,7 @@ public class WalletServiceTest {
 	void createDepositWallet_shouldCreateAndSaveWallet_WhenValidAssetId() {
 		// Arrange
 		when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
-		when(assetCustodianService.createVaultWallet(testUser.getVaultAccountId(), testAssetId))
+		when(assetCustodianService.getDepositAddress(testUser.getId(), testAssetId))
 				.thenReturn(walletAddress);
 		when(depositWalletRepository.save(any(DepositWallet.class)))
 				.thenAnswer(invocation -> invocation.getArgument(0));
@@ -70,8 +69,7 @@ public class WalletServiceTest {
 
 		// Assert
 		verify(currentUserProvider, times(2)).getCurrentUser();
-		verify(assetCustodianService, times(1)).createVaultWallet(testUser.getVaultAccountId(),
-				testAssetId);
+		verify(assetCustodianService, times(1)).getDepositAddress(testUser.getId(), testAssetId);
 	}
 
 	@Test
@@ -88,7 +86,7 @@ public class WalletServiceTest {
 		verify(currentUserProvider, times(1)).getCurrentUser();
 		verify(depositWalletRepository, times(1)).findByUserIdAndAssetId(testUser.getId(),
 				testAssetId);
-		verify(assetCustodianService, times(0)).createVaultWallet(any(), any());
+		verify(assetCustodianService, times(0)).getDepositAddress(any(), any());
 		verify(depositWalletRepository, times(0)).save(any(DepositWallet.class));
 	}
 
@@ -163,7 +161,8 @@ public class WalletServiceTest {
 
 		// Assert
 		assertThat(result).containsExactly(wallet);
-		assertThat(result.get(0).getAvailableBalance()).isEqualByComparingTo(new BigDecimal("200.50"));
+		assertThat(result.get(0).getAvailableBalance())
+				.isEqualByComparingTo(new BigDecimal("200.50"));
 		assertThat(result.get(0).daysSinceOpened()).isEqualTo(7L);
 	}
 

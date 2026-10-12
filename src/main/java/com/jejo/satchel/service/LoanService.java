@@ -64,7 +64,7 @@ public class LoanService {
 		BigDecimal ltvCollateral = assetLtv.get(collateralAssetId).multiply(collateralAmount);
 		BigDecimal loanAmount = conversionRateService.convertCurrency(ltvCollateral,
 				collateralAssetId, loanAssetId);
-		BigDecimal omnibusBalance = assetCustodianService.getOmnibusBalance(loanAssetId);
+		BigDecimal omnibusBalance = assetCustodianService.getPoolSize(loanAssetId);
 		if (omnibusBalance.compareTo(loanAmount) < 0) {
 			throw new ExcesiveEquivalentAmountException(omnibusBalance);
 		}

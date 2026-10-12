@@ -2,7 +2,6 @@ package com.jejo.satchel.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -118,7 +117,6 @@ public class AuthControllerIntTest {
 	@Test
 	void verifyEmail_shouldReturnOk_whenValidToken() throws Exception {
 		String token = "valid-token";
-		when(assetCustodianService.createVaultAccount(any())).thenReturn("vault-account-id");
 		emailVerificationTokenRepository.save(EmailVerificationToken
 				.builder().expiresAt(LocalDateTime.of(3000, 1, 1, 1, 1)).token(token).user(User.builder()
 						.firstName("fullName").lastName("lastName").email("email").password("password").build())

@@ -31,7 +31,7 @@ public class AccountServiceTest {
 	@Mock
 	private CurrentUserProvider currentUserProvider;
 	@Mock
-	private AssetCustodianService assetCustodianService;
+	private FireblocksService assetCustodianService;
 	@Mock
 	private DepositWalletRepository depositWalletRepository;
 	@Mock

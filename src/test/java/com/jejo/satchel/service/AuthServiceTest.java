@@ -39,7 +39,7 @@ public class AuthServiceTest {
 	@Mock
 	private RestMailService mailService;
 	@Mock
-	private AssetCustodianService assetCustodianService;
+	private FireblocksService assetCustodianService;
 	@InjectMocks
 	private AuthService authService;
 	

@@ -102,7 +102,7 @@ class LoanServiceTest {
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
-		when(assetCustodianService.getOmnibusBalance(LOAN_ASSET_ID))
+		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID))
 				.thenReturn(BigDecimal.valueOf(1_000_000));
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, LOAN_ASSET_ID))
 				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
@@ -128,7 +128,7 @@ class LoanServiceTest {
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(conversionRateService, never()).convertCurrency(any(), any(), any());
-		verify(assetCustodianService, never()).getOmnibusBalance(LOAN_ASSET_ID);
+		verify(assetCustodianService, never()).getPoolSize(LOAN_ASSET_ID);
 	}
 
 	@Test
@@ -169,7 +169,7 @@ class LoanServiceTest {
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
-		when(assetCustodianService.getOmnibusBalance(LOAN_ASSET_ID)).thenReturn(omnibusBalance);
+		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID)).thenReturn(omnibusBalance);
 
 		ExcesiveEquivalentAmountException ex = assertThrows(ExcesiveEquivalentAmountException.class,
 				() -> loanService.processLoanRequest(loanRequest));
@@ -200,7 +200,7 @@ class LoanServiceTest {
 		when(conversionRateService.convertCurrency(
 				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
 				LOAN_ASSET_ID)).thenReturn(loanAmount);
-		when(assetCustodianService.getOmnibusBalance(LOAN_ASSET_ID))
+		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID))
 				.thenReturn(BigDecimal.valueOf(1_000_000));
 
 		// Collateral is locked before the loan-asset wallet lookup happens
@@ -221,7 +221,7 @@ class LoanServiceTest {
 
 	private User createTestUser() {
 		return User.builder().id(1L).firstName("John").lastName("Doe").email("john@example.com")
-				.password("password123").verified(true).vaultAccountId("123").build();
+				.password("password123").verified(true).build();
 	}
 
 	private Loan createActiveLoan(User user) {

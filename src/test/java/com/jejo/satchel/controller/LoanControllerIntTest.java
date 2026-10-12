@@ -70,8 +70,7 @@ public class LoanControllerIntTest {
 
 		// Create test user
 		testUser = User.builder().firstName("John").lastName("Doe").email("john@example.com")
-				.password(passwordEncoder.encode("password123")).verified(true)
-				.vaultAccountId("123").build();
+				.password(passwordEncoder.encode("password123")).verified(true).build();
 		testUser = userRepository.save(testUser);
 		jwtToken = jwtUtil.generateToken(testUser);
 		authTokenRepository.save(AuthToken.builder().token(jwtToken).user(testUser).build());
@@ -242,7 +241,7 @@ public class LoanControllerIntTest {
 		// Given - Create another user
 		User otherUser = User.builder().firstName("Jane").lastName("Smith")
 				.email("other@example.com").password(passwordEncoder.encode("password123"))
-				.verified(true).vaultAccountId("456").build();
+				.verified(true).build();
 		otherUser = userRepository.save(otherUser);
 		String otherJwt = jwtUtil.generateToken(otherUser);
 		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
@@ -317,8 +316,7 @@ public class LoanControllerIntTest {
 		// Then - Perform second repayment
 		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(secondRequest)))
-				.andExpect(status().isOk())
+				.content(objectMapper.writeValueAsString(secondRequest))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(300.0)))
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(205.0)))
 				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")));
@@ -326,7 +324,8 @@ public class LoanControllerIntTest {
 
 	@Test
 	void getAllUserLoans_shouldReturnTheCurrentUsersLoan() throws Exception {
-		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$", Matchers.hasSize(1)))
@@ -349,7 +348,7 @@ public class LoanControllerIntTest {
 	void getAllUserLoans_shouldReturnOnlyTheCallersLoans() throws Exception {
 		User otherUser = User.builder().firstName("Jane").lastName("Smith")
 				.email("other-loans@example.com").password(passwordEncoder.encode("password123"))
-				.verified(true).vaultAccountId("456").build();
+				.verified(true).build();
 		otherUser = userRepository.save(otherUser);
 		String otherJwt = jwtUtil.generateToken(otherUser);
 		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
@@ -361,7 +360,8 @@ public class LoanControllerIntTest {
 				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(otherUser)
 				.build());
 
-		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk()).andExpect(jsonPath("$", Matchers.hasSize(1)))
 				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
 				.andExpect(jsonPath("$[0].id",
@@ -372,13 +372,13 @@ public class LoanControllerIntTest {
 	void getAllUserLoans_shouldReturnEveryStatusNewestFirst() throws Exception {
 		Loan paidLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
 				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
-				.amount(new BigDecimal("100.0000000"))
-				.collateralAmount(new BigDecimal("0.2000000"))
+				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
 				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
-				.accruedInterest(BigDecimal.ZERO)
-				.grantedAt(activeLoan.getGrantedAt().minusDays(2)).user(testUser).build());
+				.accruedInterest(BigDecimal.ZERO).grantedAt(activeLoan.getGrantedAt().minusDays(2))
+				.user(testUser).build());
 
-		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+		mockMvc.perform(
+				get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk()).andExpect(jsonPath("$", Matchers.hasSize(2)))
 				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
 				.andExpect(jsonPath("$[0].status", Matchers.equalTo("ACTIVE")))
@@ -390,12 +390,13 @@ public class LoanControllerIntTest {
 	void getAllUserLoans_shouldReturnEmptyList_whenUserHasNoLoans() throws Exception {
 		User otherUser = User.builder().firstName("Jane").lastName("Smith")
 				.email("noloans@example.com").password(passwordEncoder.encode("password123"))
-				.verified(true).vaultAccountId("789").build();
+				.verified(true).build();
 		otherUser = userRepository.save(otherUser);
 		String otherJwt = jwtUtil.generateToken(otherUser);
 		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
 
-		mockMvc.perform(get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt))
+		mockMvc.perform(
+				get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt))
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$", Matchers.hasSize(0)));

@@ -1,25 +1,12 @@
 package com.jejo.satchel.controller;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.fireblocks.sdk.model.DestinationTransferPeerPath;
-import com.fireblocks.sdk.model.SourceTransferPeerPath;
-import com.fireblocks.sdk.model.TransferPeerPathType;
-import com.jejo.satchel.model.DepositWallet;
-import com.jejo.satchel.model.FundsTransfer;
-import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.UserRepository;
-import com.jejo.satchel.service.AssetCustodianService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 public class FundsTransferControllerFullIntTest {
@@ -30,17 +17,6 @@ public class FundsTransferControllerFullIntTest {
 	private DepositWalletRepository depositWalletRepository;
 	@Autowired
 	private UserRepository userRepository;
-	@Autowired
-	private AssetCustodianService assetCustodianService;
-
-	private User user;
-
-	@BeforeEach
-	void setUp() {
-		Long random = System.currentTimeMillis() % 100000;
-		user = userRepository.save(User.builder().firstName("John").lastName("Doe")
-				.email("email@email" + random).password("pass").vaultAccountId("53").verified(true).build());
-	}
 
 	@AfterEach
 	void tearDown() {
