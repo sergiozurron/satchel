@@ -517,6 +517,71 @@ public class LoanControllerIntTest {
 	}
 
 	@Test
+	void getUserLoan_shouldReturnTheCurrentUsersLoan() throws Exception {
+		mockMvc.perform(get("/api/v1/loans/{id}", activeLoan.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.id", Matchers.equalTo(activeLoan.getId().intValue())))
+				.andExpect(jsonPath("$.loanAssetId", Matchers.equalTo("USDC")))
+				.andExpect(jsonPath("$.amount", Matchers.equalTo(500.0)))
+				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(0.0)))
+				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(505.0)))
+				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH")))
+				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.0)))
+				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
+				.andExpect(jsonPath("$.user").doesNotExist())
+				.andExpect(jsonPath("$.password").doesNotExist());
+	}
+
+	@Test
+	void getUserLoan_shouldReturnPaidLoan() throws Exception {
+		Loan paidLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
+				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
+				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
+				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
+				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(testUser)
+				.build());
+
+		mockMvc.perform(get("/api/v1/loans/{id}", paidLoan.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.id", Matchers.equalTo(paidLoan.getId().intValue())))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("PAID")));
+	}
+
+	@Test
+	void getUserLoan_shouldReturnNotFound_whenLoanDoesNotExist() throws Exception {
+		mockMvc.perform(get("/api/v1/loans/{id}", 99999L)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_LOAN_NOT_FOUND));
+	}
+
+	@Test
+	void getUserLoan_shouldReturnNotFound_whenUserDoesNotOwnLoan() throws Exception {
+		User otherUser = User.builder().firstName("Jane").lastName("Smith")
+				.email("other-get-loan@example.com").password(passwordEncoder.encode("password123"))
+				.verified(true).build();
+		otherUser = userRepository.save(otherUser);
+		String otherJwt = jwtUtil.generateToken(otherUser);
+		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
+
+		mockMvc.perform(get("/api/v1/loans/{id}", activeLoan.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_LOAN_NOT_FOUND));
+	}
+
+	@Test
+	void getUserLoan_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
+		mockMvc.perform(get("/api/v1/loans/{id}", activeLoan.getId())).andExpect(status().isForbidden());
+	}
+
+	@Test
 	void handleLoanRequest_shouldReturnTheCreatedLoan() throws Exception {
 		long loanCount = loanRepository.count();
 		depositWalletRepository.save(DepositWallet.builder().address("0xcollateral").assetId("ETH_TEST5")

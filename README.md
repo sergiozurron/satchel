@@ -303,6 +303,15 @@ On success the platform:
 
 No on-chain loan contract is created; everything is ledger-driven.
 
+**Get a loan**
+
+```bash
+curl http://localhost:8080/api/v1/loans/42 \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+The response is one loan in the same shape as a list item. A missing id, or an id that belongs to another user, is HTTP 404 with error `loan_not_found`.
+
 **Repay a loan (partial or full)**
 
 ```bash
@@ -329,6 +338,7 @@ The response is the updated loan, including the remaining outstanding amount and
 | GET    | `/api/v1/funds_transfer`              | List the current user's transfers    | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
+| GET    | `/api/v1/loans/{id}`                  | Get one of the current user's loans  | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan and return it     | Yes           |
 | PUT    | `/api/v1/loans`                       | Repay (part of) a loan               | Yes           |
 | POST   | `/api/v1/funds_transfer/funds_transfer` | Fireblocks webhook receiver        | (webhook)     |

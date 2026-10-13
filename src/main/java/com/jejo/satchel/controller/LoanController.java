@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,6 +35,11 @@ public class LoanController {
 	@GetMapping
 	public ResponseEntity<List<LoanResponse>> getAllUserLoans() {
 		return ResponseEntity.ok(loanMapper.toLoanResponses(loanService.getAllUserLoans()));
+	}
+
+	@GetMapping("/{id}")
+	public ResponseEntity<LoanResponse> getUserLoan(@PathVariable Long id) {
+		return ResponseEntity.ok(loanMapper.toLoanResponse(loanService.getUserLoan(id)));
 	}
 	
 	@PostMapping

@@ -647,4 +647,43 @@ class LoanServiceTest {
 		verify(loanRepository).findAllByUserIdOrderByGrantedAtDesc(99L);
 		verify(loanRepository, never()).findAllByUserIdOrderByGrantedAtDesc(USER_ID);
 	}
+
+	// ========== getUserLoan tests ==========
+
+	@Test
+	void getUserLoan_shouldReturnTheCurrentUsersLoan() {
+		Loan paidLoan = createActiveLoan(currentUser);
+		paidLoan.setId(7L);
+		paidLoan.setStatus(LoanStatus.PAID);
+
+		when(loanRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(paidLoan));
+
+		Loan result = loanService.getUserLoan(7L);
+
+		assertThat(result).isSameAs(paidLoan);
+		assertThat(result.getStatus()).isEqualTo(LoanStatus.PAID);
+		verify(loanRepository).findByIdAndUserId(7L, USER_ID);
+	}
+
+	@Test
+	void getUserLoan_shouldThrowLoanNotFoundException_whenLoanDoesNotExist() {
+		when(loanRepository.findByIdAndUserId(99L, USER_ID)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> loanService.getUserLoan(99L))
+				.isInstanceOf(LoanNotFoundException.class).hasMessage("Loan not found");
+
+		verify(loanRepository).findByIdAndUserId(99L, USER_ID);
+	}
+
+	@Test
+	void getUserLoan_shouldQueryOnlyTheCurrentUser() {
+		User other = User.builder().id(99L).build();
+		when(currentUserProvider.getCurrentUser()).thenReturn(other);
+		when(loanRepository.findByIdAndUserId(1L, 99L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> loanService.getUserLoan(1L)).isInstanceOf(LoanNotFoundException.class);
+
+		verify(loanRepository).findByIdAndUserId(1L, 99L);
+		verify(loanRepository, never()).findByIdAndUserId(1L, USER_ID);
+	}
 }

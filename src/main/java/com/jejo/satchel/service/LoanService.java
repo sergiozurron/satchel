@@ -134,6 +134,13 @@ public class LoanService {
 	}
 
 	@Transactional
+	public Loan getUserLoan(Long loanId) {
+		User currentUser = currentUserProvider.getCurrentUser();
+		return loanRepository.findByIdAndUserId(loanId, currentUser.getId())
+				.orElseThrow(LoanNotFoundException::new);
+	}
+
+	@Transactional
 	public List<Loan> getAllUserLoans() {
 		User currentUser = currentUserProvider.getCurrentUser();
 		return loanRepository.findAllByUserIdOrderByGrantedAtDesc(currentUser.getId());
