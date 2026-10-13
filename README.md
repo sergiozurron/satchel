@@ -2,30 +2,31 @@
 
 **Crypto Bank Platform API**
 
-Satchel is the backend API for a personal crypto banking platform. Users deposit USDC to earn interest and borrow USDC against Ethereum collateral. The system manages segregated user vaults, an omnibus treasury, internal ledger accounting, interest accrual, and automated LTV-based liquidations.
+Satchel is the backend API for a personal crypto banking platform. Users deposit any supported asset to earn interest and can borrow any supported asset against collateral they already hold. The system manages segregated user vaults, an omnibus treasury, internal ledger accounting, and per-asset interest accrual.
 
 ## Core Concepts
 
 ### Lending & Borrowing
-- **Depositors** send USDC and earn interest.
-- **Borrowers** lock Ethereum as collateral and receive USDC loans.
-- Interest paid by borrowers is distributed to depositors.
+- **Depositors** send any supported asset and earn interest on that asset.
+- **Borrowers** lock a supported asset as collateral and receive a loan in a supported asset.
+- Interest rates, loan-to-value (LTV), the platform’s share of deposit interest (fin margin), and sweep minimums are configured per asset.
 - Loans are purely ledger-based (no on-chain loan contracts). Granting or repaying a loan only updates the internal ledger.
 
 ### Treasury & Custody Model
-Every user (lender or borrower) is assigned a **vault** (a group of wallets). Users deposit USDC or ETH into their personal vault. The internal ledger credits the corresponding account balances.
+Every user (lender or borrower) is assigned a **vault** (a group of wallets). Users deposit any supported asset into their personal vault. The internal ledger credits the corresponding account balances.
 
-Periodically, deposits are **swept** from user vaults into a single **omnibus vault** that concentrates all platform assets.
+Periodically, deposits are **swept** from user vaults into a single **omnibus vault** that concentrates all platform assets. An asset is swept once its vault balance exceeds that asset’s configured sweep minimum. When the vault’s gas token (the asset’s base asset) is low, the platform fuels the vault before sweeping.
 
-Withdrawals (USDC or ETH) are paid directly from the omnibus vault to the user’s external wallet, with a corresponding debit on the internal ledger.
+Withdrawals of any supported asset are paid directly from the omnibus vault to the user’s external wallet, with a corresponding debit on the internal ledger.
 
-### Liquidation
-If the value of a borrower’s Ethereum collateral falls below the configured Loan-to-Value (LTV) ratio, the collateral is liquidated to protect the principal.
+### Loan-to-Value
+When a loan is opened, the platform sizes it from the collateral asset’s configured LTV: `ltv × collateral amount`, converted into the borrowed asset at the current price. LTV comes from configuration for that collateral asset. It applies at origination.
 
 ### Automated Background Tasks
-The platform periodically:
-- Accrues interest on deposits and outstanding loans
-- Checks LTV health of active loans and triggers liquidations when necessary
+The platform accrues interest on deposits and outstanding loans on `satchel.financial.accrual-period`:
+
+- Deposit interest for an asset is that asset’s annual rate multiplied by `(1 − fin margin)`.
+- Loan interest uses the borrowed asset’s annual rate.
 
 ### Deposit Handling
 Crypto deposits are processed via **Fireblocks** webhooks (`transaction.created`, `transaction.updated`, `vault_account.asset.balance_updated`).
@@ -87,12 +88,16 @@ spring.datasource.url=jdbc:postgresql://localhost:5432/satchel
 spring.datasource.username=postgres
 spring.datasource.password=your_password
 
-# Loan parameters
-satchel.loan.ltv=0.9
-
-# Interest
-satchel.financial.interest.apy=0.05
-satchel.financial.interest.accrual-period=30
+# Assets. Every id in `supported` must appear in each map.
+# Map keys are quoted so hyphenated ids such as ETH-AETH_SEPOLIA stay literal.
+# accrual-period is milliseconds.
+satchel.financial.accrual-period=60000
+satchel.financial.assets.supported=ETH_TEST5,USDC_ETH_TEST5_AN74,AVAXTEST,ETH-AETH_SEPOLIA,AMOY_POLYGON_TEST,BNB_TEST
+satchel.financial.assets.interest-rate={'ETH_TEST5':0.05,'USDC_ETH_TEST5_AN74':0.05,'AVAXTEST':0.05,'ETH-AETH_SEPOLIA':0.05,'AMOY_POLYGON_TEST':0.05,'BNB_TEST':0.05}
+satchel.financial.assets.ltv={'ETH_TEST5':0.8,'USDC_ETH_TEST5_AN74':0.8,'AVAXTEST':0.8,'ETH-AETH_SEPOLIA':0.8,'AMOY_POLYGON_TEST':0.8,'BNB_TEST':0.8}
+satchel.financial.assets.fin-margin={'ETH_TEST5':0.1,'USDC_ETH_TEST5_AN74':0.1,'AVAXTEST':0.1,'ETH-AETH_SEPOLIA':0.1,'AMOY_POLYGON_TEST':0.1,'BNB_TEST':0.1}
+satchel.financial.assets.deposit-sweep-minimum={'ETH_TEST5':0.01,'USDC_ETH_TEST5_AN74':0.01,'AVAXTEST':0.01,'ETH-AETH_SEPOLIA':0.01,'AMOY_POLYGON_TEST':0.01,'BNB_TEST':0.01}
+satchel.financial.assets.base-asset={'ETH_TEST5':'ETH_TEST5','USDC_ETH_TEST5_AN74':'ETH_TEST5','AVAXTEST':'AVAXTEST','ETH-AETH_SEPOLIA':'ETH-AETH_SEPOLIA','AMOY_POLYGON_TEST':'AMOY_POLYGON_TEST','BNB_TEST':'BNB_TEST'}
 
 # Fireblocks / Custodian (use testnet values)
 satchel.custodian.api.key=...
@@ -129,12 +134,26 @@ By default the application uses `spring.jpa.hibernate.ddl-auto=create` (convenie
 
 ## Supported Testnet Assets
 
-| Asset ID              | Description                  | Network   |
-|-----------------------|------------------------------|-----------|
-| `USDC_ETH_TEST5_AN74` | USDC on Ethereum Sepolia     | Sepolia   |
-| `ETH_TEST5`           | Native ETH on Sepolia        | Sepolia   |
+The API accepts the Fireblocks asset ids in `satchel.financial.assets.supported`. This is the set configured for the testnet workspace:
 
-These are the only assets currently accepted by the API validation rules.
+| Asset ID              | Description   | Network                    |
+|-----------------------|---------------|----------------------------|
+| `ETH_TEST5`           | Native ETH    | Ethereum Sepolia           |
+| `USDC_ETH_TEST5_AN74` | USDC          | Ethereum Sepolia           |
+| `AVAXTEST`            | Native AVAX   | Avalanche Fuji             |
+| `ETH-AETH_SEPOLIA`    | Native ETH    | Arbitrum Sepolia           |
+| `AMOY_POLYGON_TEST`   | Native POL    | Polygon Amoy               |
+| `BNB_TEST`            | Native BNB    | BNB Smart Chain testnet    |
+
+`USDC_ETH_TEST5_AN74` uses `ETH_TEST5` as its gas token (`base-asset`). Each of the other assets uses itself.
+
+### Adding an asset
+
+1. Enable the asset in the Fireblocks workspace.
+2. Append its Fireblocks asset id to `satchel.financial.assets.supported`.
+3. Add a quoted entry for that id to each of `interest-rate`, `ltv`, `fin-margin`, `deposit-sweep-minimum`, and `base-asset`.
+4. Add the id to `ConversionRateService.CURRENCY_MAPPING` with its CoinGecko id, so loans can price it. That map lives in code.
+5. Restart. Wallet creation, withdrawals, and loan requests all validate against the supported list.
 
 
 
@@ -179,7 +198,7 @@ Use the returned `token` in the `Authorization: Bearer <token>` header for all s
 
 
 
-### 2. How to Deposit (USDC or ETH)
+### 2. How to Deposit
 
 Deposits are credit-on-arrival: you create a deposit address belonging to your user vault, send testnet funds to it, and Fireblocks webhooks notify the platform so the internal ledger is credited.
 
@@ -187,21 +206,14 @@ Deposits are credit-on-arrival: you create a deposit address belonging to your u
 
 The response is the created wallet, with the same fields as one item from `GET /api/v1/wallets` (`id`, `address`, `assetId`, `balance`, `lockedBalance`, `availableBalance`, `accruedInterest`, `openedAt`, `daysSinceOpened`). Use `address` as the deposit destination.
 
+`assetId` is any id from the supported-assets table. The example uses Sepolia USDC.
+
 ```bash
-# For USDC (Sepolia)
 curl -X POST http://localhost:8080/api/v1/wallets \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
   -d '{
     "assetId": "USDC_ETH_TEST5_AN74"
-  }'
-
-# For ETH (Sepolia)
-curl -X POST http://localhost:8080/api/v1/wallets \
-  -H "Authorization: Bearer YOUR_JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "assetId": "ETH_TEST5"
   }'
 ```
 
@@ -216,9 +228,8 @@ Note the address returned for the desired asset.
 
 **Step 3 – Send testnet funds**
 
-1. Obtain Sepolia ETH from a public faucet (e.g. Alchemy, Infura, or Sepolia faucet sites).
-2. Obtain Sepolia USDC from a testnet faucet or bridge that supports the asset ID used by your Fireblocks workspace.
-3. Send the tokens from any external wallet (MetaMask, etc.) to the deposit address you retrieved.
+1. Obtain the testnet asset that matches the deposit wallet’s `assetId` from a public faucet or testnet bridge for that network.
+2. Send it from any external wallet (MetaMask, etc.) to the deposit address you retrieved.
 
 **Step 4 – Wait for confirmation**
 
@@ -230,7 +241,7 @@ Fireblocks will emit webhooks. Once the transaction reaches the configured compl
 
 ### 3. How to Withdraw
 
-Withdrawals debit your internal ledger and send the assets from the omnibus vault to an external address you control.
+Withdrawals debit your internal ledger and send the asset from the omnibus vault to an external address you control. `assetId` is any id from the supported-assets table.
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/funds_transfer/withdrawal \
@@ -243,8 +254,6 @@ curl -X POST http://localhost:8080/api/v1/funds_transfer/withdrawal \
   }'
 ```
 
-Supported `assetId` values: `USDC_ETH_TEST5_AN74` or `ETH_TEST5`.
-
 The platform:
 1. Checks that you have sufficient ledger balance.
 2. Creates a withdrawal transaction from the omnibus vault via Fireblocks.
@@ -253,9 +262,9 @@ The platform:
 Monitor the status through the Fireblocks console or by inspecting subsequent webhook processing.
 
 
-### 4. How to Request a Loan (Borrow USDC against ETH)
+### 4. How to Request a Loan
 
-You must already have ETH deposited as collateral (see Deposit tutorial).
+You need a deposit wallet for the collateral asset and for the asset you want to borrow, and the collateral wallet must hold enough available balance (see Deposit tutorial). Both asset ids must be in the supported list. Any pair is valid. The example borrows Sepolia USDC against Sepolia ETH.
 
 **Request a loan**
 
@@ -265,31 +274,30 @@ curl -X POST http://localhost:8080/api/v1/loans \
   -H "Content-Type: application/json" \
   -d '{
     "loanAssetId": "USDC_ETH_TEST5_AN74",
-    "ltv": 0.75,
     "collateralAmount": 1.5,
-    "collateralAssetId": "ETH_TEST5",
-    "destinationAddress": "0xYourExternalWalletOrInternalDestination"
+    "collateralAssetId": "ETH_TEST5"
   }'
 ```
 
 Field meanings:
-- `loanAssetId` – the asset you want to borrow (currently USDC testnet).
-- `ltv` – desired loan-to-value ratio (0–1). Must respect the platform maximum (default `satchel.loan.ltv=0.9`).
-- `collateralAmount` – amount of ETH you are locking.
-- `collateralAssetId` – must be `ETH_TEST5`.
-- `destinationAddress` – where the borrowed USDC should be credited / sent.
+- `loanAssetId` – the supported asset you want to borrow.
+- `collateralAssetId` – the supported asset you are locking.
+- `collateralAmount` – amount of that collateral you are locking.
+
+The platform looks up LTV from `satchel.financial.assets.ltv` for the collateral asset (`0.8` for every asset currently configured). Loan size is `ltv × collateralAmount`, converted from the collateral asset into the loan asset.
 
 On success the platform:
 - Locks the specified collateral on the ledger.
-- Credits the calculated loan amount (based on current ETH/USDC price and the requested LTV) to your account.
-- Records an active `Loan` entity.
+- Credits the calculated loan amount to your deposit wallet for the loan asset.
+- Records an active `Loan`.
+- Returns a message with the new loan id.
 
 No on-chain loan contract is created; everything is ledger-driven.
 
 **Repay a loan (partial or full)**
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/loans/repayment \
+curl -X PUT http://localhost:8080/api/v1/loans \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
   -d '{
@@ -298,7 +306,7 @@ curl -X POST http://localhost:8080/api/v1/loans/repayment \
   }'
 ```
 
-The response includes the remaining outstanding amount and the new loan status (`ACTIVE`, `PAID`, etc.).
+The response is the updated loan, including the remaining outstanding amount and the new status (`ACTIVE` or `PAID`). Repayment is debited from your deposit wallet for the loan’s asset.
 
 ## API Overview
 
@@ -312,7 +320,7 @@ The response includes the remaining outstanding amount and the new loan status (
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan                   | Yes           |
-| POST   | `/api/v1/loans/repayment`             | Repay (part of) a loan               | Yes           |
+| PUT    | `/api/v1/loans`                       | Repay (part of) a loan               | Yes           |
 | POST   | `/api/v1/funds_transfer/funds_transfer` | Fireblocks webhook receiver        | (webhook)     |
 
 ## Security Notes
