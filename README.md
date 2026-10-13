@@ -290,7 +290,7 @@ On success the platform:
 - Locks the specified collateral on the ledger.
 - Credits the calculated loan amount to your deposit wallet for the loan asset.
 - Records an active `Loan`.
-- Returns a message with the new loan id.
+- Returns the created loan, in the same shape as a repayment response (id, assets, amounts, outstanding amount, interest rate, status, accrued interest, and granted time).
 
 No on-chain loan contract is created; everything is ledger-driven.
 
@@ -319,7 +319,7 @@ The response is the updated loan, including the remaining outstanding amount and
 | POST   | `/api/v1/wallets`                     | Create a deposit wallet and return it | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
-| POST   | `/api/v1/loans`                       | Request a new loan                   | Yes           |
+| POST   | `/api/v1/loans`                       | Request a new loan and return it     | Yes           |
 | PUT    | `/api/v1/loans`                       | Repay (part of) a loan               | Yes           |
 | POST   | `/api/v1/funds_transfer/funds_transfer` | Fireblocks webhook receiver        | (webhook)     |
 

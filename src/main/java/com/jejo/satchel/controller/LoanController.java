@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.dto.LoanResponse;
-import com.jejo.satchel.dto.Response;
 import com.jejo.satchel.mapper.LoanMapper;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.service.LoanService;
@@ -38,9 +37,9 @@ public class LoanController {
 	}
 	
 	@PostMapping
-	public ResponseEntity<Response> handleLoanRequest(@Valid @RequestBody CreateLoanRequest loanRequest){
-		Long loanId = loanService.processLoanRequest(loanRequest);
-		return ResponseEntity.ok(new Response("Created active loan with id: " + loanId));
+	public ResponseEntity<LoanResponse> handleLoanRequest(@Valid @RequestBody CreateLoanRequest loanRequest) {
+		Loan createdLoan = loanService.processLoanRequest(loanRequest);
+		return ResponseEntity.ok(loanMapper.toLoanResponse(createdLoan));
 	}
 	
 	@PutMapping

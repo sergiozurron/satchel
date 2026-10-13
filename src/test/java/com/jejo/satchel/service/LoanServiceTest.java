@@ -106,10 +106,12 @@ class LoanServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, LOAN_ASSET_ID))
 				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
 						.lockedBalance(BigDecimal.ZERO).build()));
-		when(loanRepository.save(any(Loan.class))).thenReturn(Loan.builder().id(1L).build());
+		Loan savedLoan = Loan.builder().id(1L).build();
+		when(loanRepository.save(any(Loan.class))).thenReturn(savedLoan);
 
-		loanService.processLoanRequest(loanRequest);
+		Loan result = loanService.processLoanRequest(loanRequest);
 
+		assertThat(result).isSameAs(savedLoan);
 		verify(depositWalletRepository, times(2)).save(any());
 	}
 

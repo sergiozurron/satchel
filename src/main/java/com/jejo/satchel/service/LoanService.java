@@ -50,7 +50,7 @@ public class LoanService {
 	}
 
 	@Transactional
-	public Long processLoanRequest(CreateLoanRequest loanRequest) {
+	public Loan processLoanRequest(CreateLoanRequest loanRequest) {
 		User currentUser = currentUserProvider.getCurrentUser();
 		String collateralAssetId = loanRequest.getCollateralAssetId();
 		DepositWallet collateralWallet = depositWalletRepository
@@ -86,7 +86,7 @@ public class LoanService {
 				.interestRate(assetInterestRates.get(loanAssetId)).status(LoanStatus.ACTIVE)
 				.accruedInterest(BigDecimal.ZERO).grantedAt(grantedAt).user(currentUser).build());
 
-		return newLoan.getId();
+		return newLoan;
 	}
 
 	@Transactional

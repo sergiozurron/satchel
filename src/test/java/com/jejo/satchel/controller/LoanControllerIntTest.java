@@ -1,6 +1,7 @@
 package com.jejo.satchel.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -20,8 +21,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
@@ -34,6 +38,8 @@ import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
+import com.jejo.satchel.service.AssetCustodianService;
+import com.jejo.satchel.service.ConversionRateService;
 import com.jejo.satchel.util.JwtUtil;
 
 @SpringBootTest
@@ -56,6 +62,12 @@ public class LoanControllerIntTest {
 	private JwtUtil jwtUtil;
 	@Autowired
 	private AuthTokenRepository authTokenRepository;
+
+	@MockitoBean
+	private AssetCustodianService assetCustodianService;
+
+	@MockitoBean
+	private ConversionRateService conversionRateService;
 
 	private User testUser;
 	private Loan activeLoan;
@@ -407,6 +419,61 @@ public class LoanControllerIntTest {
 	@Test
 	void getAllUserLoans_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
 		mockMvc.perform(get("/api/v1/loans")).andExpect(status().isForbidden());
+	}
+
+	@Test
+	void handleLoanRequest_shouldReturnTheCreatedLoan() throws Exception {
+		long loanCount = loanRepository.count();
+		depositWalletRepository.save(DepositWallet.builder().address("0xcollateral").assetId("ETH_TEST5")
+				.balance(new BigDecimal("10.0000000")).lockedBalance(BigDecimal.ZERO)
+				.accruedInterest(BigDecimal.ZERO).openedAt(LocalDateTime.now()).user(testUser).build());
+		depositWalletRepository.save(DepositWallet.builder().address("0xloanasset")
+				.assetId("USDC_ETH_TEST5_AN74").balance(BigDecimal.ZERO).lockedBalance(BigDecimal.ZERO)
+				.accruedInterest(BigDecimal.ZERO).openedAt(LocalDateTime.now()).user(testUser).build());
+
+		when(conversionRateService.getConversionRate("ETH_TEST5", "USDC_ETH_TEST5_AN74"))
+				.thenReturn(BigDecimal.TEN);
+		when(assetCustodianService.getPoolSize("USDC_ETH_TEST5_AN74"))
+				.thenReturn(new BigDecimal("1000000"));
+
+		CreateLoanRequest request = new CreateLoanRequest();
+		request.setLoanAssetId("USDC_ETH_TEST5_AN74");
+		request.setCollateralAssetId("ETH_TEST5");
+		request.setCollateralAmount(BigDecimal.ONE);
+
+		MvcResult result = mockMvc.perform(post("/api/v1/loans")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.id", Matchers.notNullValue()))
+				.andExpect(jsonPath("$.loanAssetId", Matchers.equalTo("USDC_ETH_TEST5_AN74")))
+				.andExpect(jsonPath("$.amount", Matchers.equalTo(8.0)))
+				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(0)))
+				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(8.0)))
+				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH_TEST5")))
+				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(1)))
+				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
+				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(0)))
+				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
+				.andExpect(jsonPath("$.user").doesNotExist())
+				.andExpect(jsonPath("$.password").doesNotExist())
+				.andReturn();
+
+		JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+		Long createdId = body.get("id").asLong();
+		Loan saved = loanRepository.findById(createdId).orElseThrow();
+		assertThat(loanRepository.count()).isEqualTo(loanCount + 1);
+		assertThat(saved.getLoanAssetId()).isEqualTo("USDC_ETH_TEST5_AN74");
+		assertThat(saved.getCollateralAssetId()).isEqualTo("ETH_TEST5");
+		assertThat(saved.getAmount()).isEqualByComparingTo("8");
+		assertThat(saved.getReturnedAmount()).isEqualByComparingTo("0");
+		assertThat(saved.getCollateralAmount()).isEqualByComparingTo("1");
+		assertThat(saved.getAccruedInterest()).isEqualByComparingTo("0");
+		assertThat(saved.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(saved.getInterestRate()).isEqualByComparingTo("0.05");
 	}
 
 	@Test
