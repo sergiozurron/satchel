@@ -48,9 +48,10 @@ public class LoanController {
 		return ResponseEntity.ok(loanMapper.toLoanResponse(createdLoan));
 	}
 	
-	@PutMapping
-	public ResponseEntity<LoanResponse> repayLoan(@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
-		Loan updatedLoan = loanService.repayLoan(repaymentRequest.getLoanId(), repaymentRequest.getAmount());
+	@PutMapping("/{id}")
+	public ResponseEntity<LoanResponse> repayLoan(@PathVariable Long id,
+			@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
+		Loan updatedLoan = loanService.repayLoan(id, repaymentRequest.getAmount());
 		return ResponseEntity.ok(loanMapper.toLoanResponse(updatedLoan));
 	}
 	

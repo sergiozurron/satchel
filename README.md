@@ -324,11 +324,10 @@ The response is one loan in the same shape as a list item. A missing id, or an i
 **Repay a loan (partial or full)**
 
 ```bash
-curl -X PUT http://localhost:8080/api/v1/loans \
+curl -X PUT http://localhost:8080/api/v1/loans/42 \
   -H "Authorization: Bearer YOUR_JWT" \
   -H "Content-Type: application/json" \
   -d '{
-    "loanId": 42,
     "amount": 100.00
   }'
 ```
@@ -350,7 +349,7 @@ The response is the updated loan, including the remaining outstanding amount and
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
 | GET    | `/api/v1/loans/{id}`                  | Get one of the current user's loans  | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan and return it     | Yes           |
-| PUT    | `/api/v1/loans`                       | Repay (part of) a loan               | Yes           |
+| PUT    | `/api/v1/loans/{id}`                  | Repay (part of) a loan               | Yes           |
 | POST   | `/api/v1/funds_transfer/funds_transfer` | Fireblocks webhook receiver        | (webhook)     |
 
 ## Security Notes
