@@ -2,6 +2,7 @@ package com.jejo.satchel.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.model.AuthToken;
 import com.jejo.satchel.model.DepositWallet;
@@ -405,6 +407,48 @@ public class LoanControllerIntTest {
 	@Test
 	void getAllUserLoans_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
 		mockMvc.perform(get("/api/v1/loans")).andExpect(status().isForbidden());
+	}
+
+	@Test
+	void handleLoanRequest_shouldReturnBadRequest_whenLoanAssetIsNotSupported() throws Exception {
+		long loanCount = loanRepository.count();
+		CreateLoanRequest request = new CreateLoanRequest();
+		request.setLoanAssetId("NOT_A_REAL_ASSET");
+		request.setCollateralAssetId("ETH_TEST5");
+		request.setCollateralAmount(BigDecimal.ONE);
+
+		mockMvc.perform(post("/api/v1/loans")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(1)))
+				.andExpect(jsonPath("$[0].error").value("ValidAssetId"))
+				.andExpect(jsonPath("$[0].message").value("Asset not supported"));
+
+		assertThat(loanRepository.count()).isEqualTo(loanCount);
+	}
+
+	@Test
+	void handleLoanRequest_shouldReturnBadRequest_whenCollateralAssetIsNotSupported() throws Exception {
+		long loanCount = loanRepository.count();
+		CreateLoanRequest request = new CreateLoanRequest();
+		request.setLoanAssetId("ETH_TEST5");
+		request.setCollateralAssetId("NOT_A_REAL_ASSET");
+		request.setCollateralAmount(BigDecimal.ONE);
+
+		mockMvc.perform(post("/api/v1/loans")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(1)))
+				.andExpect(jsonPath("$[0].error").value("ValidAssetId"))
+				.andExpect(jsonPath("$[0].message").value("Asset not supported"));
+
+		assertThat(loanRepository.count()).isEqualTo(loanCount);
 	}
 
 }

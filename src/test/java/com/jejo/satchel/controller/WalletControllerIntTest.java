@@ -162,6 +162,25 @@ public class WalletControllerIntTest {
 		verify(assetCustodianService, never()).getDepositAddress(any(), any());
 	}
 
+	@Test
+	void createDepositWallet_shouldReturnBadRequest_WhenAssetIsNotSupported() throws Exception {
+		CreateDepositWalletRequest request = new CreateDepositWalletRequest();
+		request.setAssetId("NOT_A_REAL_ASSET");
+
+		mockMvc.perform(post("/api/v1/wallets")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(1)))
+				.andExpect(jsonPath("$[0].error").value("ValidAssetId"))
+				.andExpect(jsonPath("$[0].message").value("Asset not supported"));
+
+		assertThat(depositWalletRepository.findByUserIdAndAssetId(testUser.getId(), "NOT_A_REAL_ASSET")).isEmpty();
+		verify(assetCustodianService, never()).getDepositAddress(any(), any());
+	}
+
 	// Tests for GET /api/v1/wallets endpoint
 
 	@Test
