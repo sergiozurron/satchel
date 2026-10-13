@@ -64,8 +64,9 @@ class LoanServiceTest {
 	private AssetCustodianService assetCustodianService;
 
 	@Mock
-	private ConversionRateService conversionRateService; // also used as assetPriceService in repay
-															// tests
+	private CoingeckoConversionRateService conversionRateService; // also used as assetPriceService
+																	// in repay
+	// tests
 
 	private User currentUser;
 
@@ -89,7 +90,6 @@ class LoanServiceTest {
 	@Test
 	void processLoanRequest_locksCollateralCreditsWalletAndSavesLoan() {
 		BigDecimal collateralAmount = BigDecimal.valueOf(2);
-		BigDecimal loanAmount = BigDecimal.valueOf(4000); // e.g. 2 ETH -> 4000 USDC
 
 		CreateLoanRequest loanRequest = new CreateLoanRequest();
 		loanRequest.setCollateralAssetId(COLLATERAL_ASSET_ID);
@@ -99,9 +99,8 @@ class LoanServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
 				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
 						.lockedBalance(BigDecimal.ZERO).build()));
-		when(conversionRateService.convertCurrency(
-				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
-				LOAN_ASSET_ID)).thenReturn(loanAmount);
+		when(conversionRateService.getConversionRate(COLLATERAL_ASSET_ID, LOAN_ASSET_ID))
+				.thenReturn(BigDecimal.TEN);
 		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID))
 				.thenReturn(BigDecimal.valueOf(1_000_000));
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, LOAN_ASSET_ID))
@@ -127,7 +126,7 @@ class LoanServiceTest {
 
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
-		verify(conversionRateService, never()).convertCurrency(any(), any(), any());
+		verify(conversionRateService, never()).getConversionRate(any(), any());
 		verify(assetCustodianService, never()).getPoolSize(LOAN_ASSET_ID);
 	}
 
@@ -147,7 +146,7 @@ class LoanServiceTest {
 
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
-		verify(conversionRateService, never()).convertCurrency(any(), any(), any());
+		verify(conversionRateService, never()).getConversionRate(any(), any());
 	}
 
 	@Test
@@ -166,9 +165,8 @@ class LoanServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
 				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
 						.lockedBalance(BigDecimal.ZERO).build()));
-		when(conversionRateService.convertCurrency(
-				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
-				LOAN_ASSET_ID)).thenReturn(loanAmount);
+		when(conversionRateService.getConversionRate(COLLATERAL_ASSET_ID, LOAN_ASSET_ID))
+				.thenReturn(loanAmount);
 		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID)).thenReturn(omnibusBalance);
 
 		ExcesiveEquivalentAmountException ex = assertThrows(ExcesiveEquivalentAmountException.class,
@@ -197,9 +195,8 @@ class LoanServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
 				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
 						.lockedBalance(BigDecimal.ZERO).build()));
-		when(conversionRateService.convertCurrency(
-				collateralAmount.multiply(BigDecimal.valueOf(0.5)), COLLATERAL_ASSET_ID,
-				LOAN_ASSET_ID)).thenReturn(loanAmount);
+		when(conversionRateService.getConversionRate(COLLATERAL_ASSET_ID, LOAN_ASSET_ID))
+				.thenReturn(loanAmount);
 		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID))
 				.thenReturn(BigDecimal.valueOf(1_000_000));
 
