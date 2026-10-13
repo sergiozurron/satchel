@@ -143,20 +143,8 @@ public class AccountServiceTest {
 	}
 
 	@Test
-	void initiateWithdrawal_throwsInsufficientFunds_whenAmountEqualsAvailableBalance() {
-		DepositWallet source = stubSourceWallet(new BigDecimal("100"), BigDecimal.ZERO);
-
-		assertThatThrownBy(() -> accountService.initiateWithdrawal(withdrawalRequest("0xdest", new BigDecimal("100"))))
-				.isInstanceOf(InsufficientFundsException.class);
-
-		assertThat(source.getBalance()).isEqualByComparingTo("100");
-		verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
-		verifyNoWithdrawalSideEffects();
-	}
-
-	@Test
 	void initiateWithdrawal_throwsInsufficientFunds_whenLockedBalanceReducesAvailableBelowAmount() {
-		DepositWallet source = stubSourceWallet(new BigDecimal("100"), new BigDecimal("40"));
+		DepositWallet source = stubSourceWallet(new BigDecimal("100"), new BigDecimal("41"));
 
 		assertThatThrownBy(() -> accountService.initiateWithdrawal(withdrawalRequest("0xdest", new BigDecimal("60"))))
 				.isInstanceOf(InsufficientFundsException.class);

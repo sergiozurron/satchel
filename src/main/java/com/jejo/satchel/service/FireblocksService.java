@@ -41,7 +41,7 @@ import com.fireblocks.sdk.model.VaultWalletAddress;
 
 @Slf4j
 public class FireblocksService implements AssetCustodianService {
-	
+
 	@Value("#{${satchel.financial.assets.deposit-sweep-minimum}}")
 	private Map<String, BigDecimal> assetDepositSweepMinimums;
 	@Value("#{${satchel.financial.assets.base-asset}}")
@@ -61,14 +61,14 @@ public class FireblocksService implements AssetCustodianService {
 	private final Fireblocks fireblocks;
 
 	public FireblocksService(String apiKey, String secretKey) {
-		ConfigurationOptions configurationOptions = new ConfigurationOptions().basePath(BasePath.Sandbox)
-				.apiKey(apiKey).secretKey(secretKey);
+		ConfigurationOptions configurationOptions = new ConfigurationOptions()
+				.basePath(BasePath.Sandbox).apiKey(apiKey).secretKey(secretKey);
 		this.fireblocks = new Fireblocks(configurationOptions);
 	}
 
-	private List<VaultAccount> findAllVaultAccountsByPrefixAndMinAmountAndAsset(String namePrefix,
+	private List<VaultAccount> findAllVaultAccountsBySuffixAndMinAmountAndAsset(String nameSuffix,
 			BigDecimal minAmountThreshold, String assetId) {
-		return findAllVaultAccounts(namePrefix, null, minAmountThreshold, assetId, null, null, null,
+		return findAllVaultAccounts(null, nameSuffix, minAmountThreshold, assetId, null, null, null,
 				null, null);
 	}
 
@@ -93,8 +93,8 @@ public class FireblocksService implements AssetCustodianService {
 	@Scheduled(initialDelayString = "${satchel.custodian.deposit.sweep.delay}", fixedDelayString = "${satchel.custodian.deposit.sweep.delay}")
 	public void sweepDepositsToOmnibus() {
 		log.info("Sweeping deposits to omnibus account");
-		List<VaultAccount> depositAccounts = findAllVaultAccountsByPrefixAndMinAmountAndAsset(
-				"deposit-", BigDecimal.ZERO, null);
+		List<VaultAccount> depositAccounts = findAllVaultAccountsBySuffixAndMinAmountAndAsset(
+				depositSuffix, BigDecimal.ZERO, null);
 		depositAccounts.forEach(account -> {
 			// Gather base asset amounts for auto fueling
 			Map<String, BigDecimal> baseAssetAmount = new HashMap<>();
@@ -124,7 +124,7 @@ public class FireblocksService implements AssetCustodianService {
 
 	private void createTransaction(String assetId, String sourceVaultAccountId,
 			String destinationVaultAccountId, BigDecimal amount) {
-		SourceTransferPeerPath source = new SourceTransferPeerPath().id(omnibusId)
+		SourceTransferPeerPath source = new SourceTransferPeerPath().id(sourceVaultAccountId)
 				.type(TransferPeerPathType.VAULT_ACCOUNT);
 		DestinationTransferPeerPath destination = new DestinationTransferPeerPath()
 				.id(destinationVaultAccountId).type(TransferPeerPathType.VAULT_ACCOUNT);
@@ -151,8 +151,8 @@ public class FireblocksService implements AssetCustodianService {
 			// Find vault account
 			String vaultAccountId = null;
 			CompletableFuture<ApiResponse<VaultAccountsPagedResponse>> getPagedVaultAccountsResponse = fireblocks
-					.vaults().getPagedVaultAccounts(vaultName, null, null, null, null, null,
-							null, null, null);
+					.vaults().getPagedVaultAccounts(vaultName, null, null, null, null, null, null,
+							null, null);
 			List<String> vaultAccountIds = getPagedVaultAccountsResponse.get().getData()
 					.getAccounts().stream().map(VaultAccount::getId).toList();
 			// Create vault account if it does not exist
@@ -195,8 +195,9 @@ public class FireblocksService implements AssetCustodianService {
 	}
 
 	@Override
-	public void createTransaction(String assetId, BigDecimal amount, Long userId,
+	public String createTransaction(String assetId, BigDecimal amount, Long userId,
 			String destinationAddress) {
+		String transactionId = null;
 		SourceTransferPeerPath source = new SourceTransferPeerPath().id(omnibusId)
 				.type(TransferPeerPathType.VAULT_ACCOUNT);
 		DestinationTransferPeerPath destination = new DestinationTransferPeerPath()
@@ -208,13 +209,14 @@ public class FireblocksService implements AssetCustodianService {
 		try {
 			CompletableFuture<ApiResponse<CreateTransactionResponse>> response = fireblocks
 					.transactions().createTransaction(transactionRequest, null, null);
-			String transactionId = response.get().getData().getId();
+			transactionId = response.get().getData().getId();
 			log.info(
 					"Created transaction with id: {}, assetId: {}, amount: {}, source: {}, destination: {}",
 					transactionId, assetId, amount, source.getId(), destination.getId());
 		} catch (ApiException | InterruptedException | ExecutionException e) {
 			log.error("{}", e.getCause());
 		}
+		return transactionId;
 	}
 
 	@Override
@@ -224,8 +226,8 @@ public class FireblocksService implements AssetCustodianService {
 			CompletableFuture<ApiResponse<VaultAsset>> response = fireblocks.vaults()
 					.getVaultAccountAsset(omnibusId, assetId);
 			balance = new BigDecimal(response.get().getData().getAvailable());
-			log.info("Retrieved balance for omnibusId: {}, assetId: {}. Balance: {}",
-					omnibusId, assetId, balance);
+			log.info("Retrieved balance for omnibusId: {}, assetId: {}. Balance: {}", omnibusId,
+					assetId, balance);
 		} catch (Exception e) {
 			log.error("{}", e.getCause());
 		}

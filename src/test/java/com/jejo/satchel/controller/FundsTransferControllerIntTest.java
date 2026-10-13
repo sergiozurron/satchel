@@ -191,23 +191,6 @@ public class FundsTransferControllerIntTest {
 	}
 
 	@Test
-	void initiateWithdrawal_shouldReturnBadRequest_WhenAmountEqualsAvailableBalance() throws Exception {
-		DepositWallet wallet = saveWallet(testUser, "0xsource", "100", "40");
-		long transfersBefore = fundsTransferRepository.count();
-		WithdrawalRequest request = withdrawalRequest(ASSET_ID, "0xexternal", new BigDecimal("60"));
-
-		postWithdrawal(request, true)
-				.andExpect(status().isBadRequest())
-				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INSUFFICIENT_FUNDS))
-				.andExpect(jsonPath("$.message").value("Insufficient funds in account"));
-
-		assertThat(reload(wallet).getBalance()).isEqualByComparingTo("100");
-		assertThat(fundsTransferRepository.count()).isEqualTo(transfersBefore);
-		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
-	}
-
-	@Test
 	void initiateWithdrawal_shouldReturnBadRequest_WhenDestinationIsOwnWallet() throws Exception {
 		DepositWallet wallet = saveWallet(testUser, "0xsource", "100", "0");
 		long transfersBefore = fundsTransferRepository.count();

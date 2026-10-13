@@ -102,7 +102,7 @@ public class AccountService {
 				.findByUserIdAndAssetId(userId, assetId)
 				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(
 						withdrawalRequest.getAssetId()));
-		if (withdrawalRequest.getAmount().compareTo(depositWallet.getAvailableBalance()) >= 0) {
+		if (withdrawalRequest.getAmount().compareTo(depositWallet.getAvailableBalance()) > 0) {
 			throw new InsufficientFundsException();
 		}
 		// Detect transfers between two internal accounts and handle them without
@@ -130,7 +130,7 @@ public class AccountService {
 									.timestamp(LocalDateTime.now()).isCompleted(true).build());
 				}, () -> {
 					// Transfer to external account
-					assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
+					String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
 							userId, withdrawalRequest.getDestinationAddress());
 					// isCompleted is false because we will wait for the webhook to confirm the
 					// transaction and credit the user's account
@@ -138,6 +138,7 @@ public class AccountService {
 							.depositWallet(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.amount(withdrawalRequest.getAmount().negate())
+							.transactionId(transactionId)
 							.timestamp(LocalDateTime.now()).isCompleted(false).build());
 				});
 	}

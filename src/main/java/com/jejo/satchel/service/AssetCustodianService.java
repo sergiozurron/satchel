@@ -4,6 +4,6 @@ import java.math.BigDecimal;
 
 public interface AssetCustodianService {
 	String getDepositAddress(Long userId, String assetId);
-	void createTransaction(String assetId, BigDecimal amount, Long userId, String destinationAddress);
+	String createTransaction(String assetId, BigDecimal amount, Long userId, String destinationAddress);
 	BigDecimal getPoolSize(String assetId);
 }
