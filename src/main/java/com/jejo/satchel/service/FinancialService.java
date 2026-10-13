@@ -28,9 +28,6 @@ public class FinancialService {
 	@Value("${satchel.financial.accrual-period}")
 	private Integer accrualPeriod;
 
-	@Value("{satchel.name.deposit.prefix}")
-	private String depositPrefix;
-
 	private static final Double MILIS_IN_YEAR = 31_557_600_000.0;
 
 	private final DepositWalletRepository depositWalletRepository;

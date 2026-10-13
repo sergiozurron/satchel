@@ -55,8 +55,8 @@ public class FireblocksService implements AssetCustodianService {
 	@Value("${satchel.financial.gas-threshold}")
 	private BigDecimal gasThreshold;
 
-	@Value("${satchel.name.deposit.prefix}")
-	private String depositPrefix;
+	@Value("${satchel.name.deposit.suffix}")
+	private String depositSuffix;
 
 	private final Fireblocks fireblocks;
 
@@ -146,9 +146,10 @@ public class FireblocksService implements AssetCustodianService {
 	@Override
 	public String getDepositAddress(Long userId, String assetId) {
 		String address = null;
-		String vaultName = depositPrefix + userId;
+		String vaultName = userId + depositSuffix;
 		try {
 			// Find vault account
+			String vaultAccountId = null;
 			CompletableFuture<ApiResponse<VaultAccountsPagedResponse>> getPagedVaultAccountsResponse = fireblocks
 					.vaults().getPagedVaultAccounts(vaultName, null, null, null, null, null,
 							null, null, null);
@@ -156,17 +157,17 @@ public class FireblocksService implements AssetCustodianService {
 					.getAccounts().stream().map(VaultAccount::getId).toList();
 			// Create vault account if it does not exist
 			if (vaultAccountIds.isEmpty()) {
-				String vaultId = null;
 				CreateVaultAccountRequest request = new CreateVaultAccountRequest().name(vaultName)
 						.vaultType(VaultTypeEnum.MPC).hiddenOnUI(true);
 				String idempotencyKey = Integer.toString(new Random().nextInt()); // Valid for 24
 																					// hours
 				CompletableFuture<ApiResponse<VaultAccount>> response = fireblocks.vaults()
 						.createVaultAccount(request, idempotencyKey);
-				vaultAccountIds.set(0, response.get().getData().getId());
-				log.info("Created vault account with name: {}, id: {}", vaultName, vaultId);
+				vaultAccountId = response.get().getData().getId();
+				log.info("Created vault account with name: {}, id: {}", vaultName, vaultAccountId);
+			} else {
+				vaultAccountId = vaultAccountIds.get(0);
 			}
-			String vaultAccountId = vaultAccountIds.get(0);
 			// Find asset wallet
 			CompletableFuture<ApiResponse<PaginatedAddressResponse>> vaultAccountResponse = fireblocks
 					.vaults().getVaultAccountAssetAddressesPaginated(vaultAccountId, assetId, null,
@@ -180,11 +181,12 @@ public class FireblocksService implements AssetCustodianService {
 				CompletableFuture<ApiResponse<CreateVaultAssetResponse>> response = fireblocks
 						.vaults().createVaultAccountAsset(vaultAccountId.toString(), assetId,
 								createAssetsRequest, idempotencyKey);
-				addresses.set(0, response.get().getData().getAddress());
+				address = response.get().getData().getAddress();
 				log.info("Created vault wallet for vaultAccountId: {}, assetId: {}, address: {}",
 						vaultAccountId, assetId, address);
+			} else {
+				address = addresses.get(0);
 			}
-			address = addresses.get(0);
 
 		} catch (ApiException | InterruptedException | ExecutionException e) {
 			log.error("{}", e.getCause());

@@ -31,9 +31,6 @@ public class AccountService {
 	@Value("${satchel.financial.assets.supported}")
 	public List<String> supportedAssets;
 
-	@Value("${satchel.name.deposit.prefix}")
-	public String depositPrefix;
-
 	@Value("${satchel.custodian.account.omnibus.address}")
 	public String omnibusAddress;
 	@Value("${satchel.custodian.account.gas-station.address}")
