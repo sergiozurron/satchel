@@ -7,6 +7,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
+import com.jejo.satchel.exception.DepositWalletNotFoundException;
 import com.jejo.satchel.exception.UnableToGetAddressException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.repository.DepositWalletRepository;
@@ -53,6 +54,13 @@ public class WalletService {
     public List<DepositWallet> getAllUserWallets() {
         Long userId = currentUserProvider.getCurrentUser().getId();
         return depositWalletRepository.findAllByUserId(userId);
+    }
+
+    @Transactional
+    public DepositWallet getUserWallet(Long id) {
+        Long userId = currentUserProvider.getCurrentUser().getId();
+        return depositWalletRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(DepositWalletNotFoundException::new);
     }
 
 }

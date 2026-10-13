@@ -226,6 +226,15 @@ curl http://localhost:8080/api/v1/wallets \
 
 Note the address returned for the desired asset.
 
+**Get one deposit wallet**
+
+```bash
+curl http://localhost:8080/api/v1/wallets/42 \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+The response is one wallet in the same shape as a list item. A missing id, or an id that belongs to another user, is HTTP 404 with error `deposit_wallet_not_found`.
+
 **Step 3 – Send testnet funds**
 
 1. Obtain the testnet asset that matches the deposit wallet’s `assetId` from a public faucet or testnet bridge for that network.
@@ -334,6 +343,7 @@ The response is the updated loan, including the remaining outstanding amount and
 | GET    | `/api/v1/auth/email-verification`     | Verify email with token              | No            |
 | POST   | `/api/v1/auth/login`                  | Obtain JWT                           | No            |
 | GET    | `/api/v1/wallets`                     | List user’s deposit wallets          | Yes           |
+| GET    | `/api/v1/wallets/{id}`                | Get one of the current user's deposit wallets | Yes    |
 | POST   | `/api/v1/wallets`                     | Create a deposit wallet and return it | Yes           |
 | GET    | `/api/v1/funds_transfer`              | List the current user's transfers    | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |

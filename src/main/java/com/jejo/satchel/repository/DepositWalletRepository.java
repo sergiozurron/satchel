@@ -12,6 +12,7 @@ public interface DepositWalletRepository extends JpaRepository<DepositWallet, Lo
 	public boolean existsByUserId(Long id);
 	public Optional<DepositWallet> findByAddressAndAssetId(String address, String assetId);
 	public Optional<DepositWallet> findByUserIdAndAssetId(Long userId, String assetId);
+	public Optional<DepositWallet> findByIdAndUserId(Long id, Long userId);
 	public List<DepositWallet> findAllByUserId(Long userId);
 	public List<DepositWallet> findByAssetId(String assetId);
 }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -400,6 +401,81 @@ public class WalletControllerIntTest {
 				.andExpect(jsonPath("$[0].id", Matchers.equalTo(wallet1.getId().intValue())))
 				.andExpect(jsonPath("$[1].id", Matchers.equalTo(wallet2.getId().intValue())))
 				.andExpect(jsonPath("$[2].id", Matchers.equalTo(wallet3.getId().intValue())));
+	}
+
+	@Test
+	void getUserWallet_shouldReturnTheCurrentUsersWallet() throws Exception {
+		DepositWallet wallet = depositWalletRepository.save(DepositWallet.builder()
+				.address("0x5555555555555555")
+				.assetId("USDC_ETH_TEST5_AN74")
+				.balance(new BigDecimal("250.75"))
+				.lockedBalance(new BigDecimal("50.25"))
+				.accruedInterest(new BigDecimal("5.00"))
+				.openedAt(LocalDateTime.now().minusDays(7))
+				.user(testUser)
+				.build());
+
+		mockMvc.perform(get("/api/v1/wallets/{id}", wallet.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.id", Matchers.equalTo(wallet.getId().intValue())))
+				.andExpect(jsonPath("$.address", Matchers.equalTo("0x5555555555555555")))
+				.andExpect(jsonPath("$.assetId", Matchers.equalTo("USDC_ETH_TEST5_AN74")))
+				.andExpect(jsonPath("$.balance", Matchers.equalTo(250.75)))
+				.andExpect(jsonPath("$.lockedBalance", Matchers.equalTo(50.25)))
+				.andExpect(jsonPath("$.availableBalance", Matchers.equalTo(200.50)))
+				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.00)))
+				.andExpect(jsonPath("$.daysSinceOpened", Matchers.equalTo(7)))
+				.andExpect(jsonPath("$.openedAt", Matchers.notNullValue()))
+				.andExpect(jsonPath("$.user").doesNotExist());
+
+		verifyNoInteractions(assetCustodianService);
+	}
+
+	@Test
+	void getUserWallet_shouldReturnNotFound_whenWalletDoesNotExist() throws Exception {
+		mockMvc.perform(get("/api/v1/wallets/{id}", 99999L)
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_DEPOSIT_WALLET_NOT_FOUND))
+				.andExpect(jsonPath("$.message").value("Deposit wallet not found"));
+	}
+
+	@Test
+	void getUserWallet_shouldReturnNotFound_whenUserDoesNotOwnWallet() throws Exception {
+		DepositWallet wallet = depositWalletRepository.save(DepositWallet.builder()
+				.address("0x1111111111111111")
+				.assetId("USDC_ETH_TEST5_AN74")
+				.balance(new BigDecimal("100.00"))
+				.lockedBalance(BigDecimal.ZERO)
+				.accruedInterest(BigDecimal.ZERO)
+				.openedAt(LocalDateTime.now())
+				.user(testUser)
+				.build());
+
+		Long random = System.currentTimeMillis() % 100000;
+		User otherUser = userRepository.save(User.builder()
+				.firstName("Jane")
+				.lastName("Smith")
+				.email("other.wallet" + random + "@example.com")
+				.password("password456")
+				.verified(true)
+				.build());
+		String otherJwt = jwtUtil.generateToken(otherUser);
+		authTokenRepository.save(AuthToken.builder().token(otherJwt).user(otherUser).build());
+
+		mockMvc.perform(get("/api/v1/wallets/{id}", wallet.getId())
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_DEPOSIT_WALLET_NOT_FOUND))
+				.andExpect(jsonPath("$.message").value("Deposit wallet not found"));
+	}
+
+	@Test
+	void getUserWallet_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
+		mockMvc.perform(get("/api/v1/wallets/{id}", 1L))
+				.andExpect(status().isForbidden());
 	}
 
 }

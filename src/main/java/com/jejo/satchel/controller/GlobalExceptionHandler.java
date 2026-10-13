@@ -14,6 +14,7 @@ import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
+import com.jejo.satchel.exception.DepositWalletNotFoundException;
 import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
@@ -137,6 +138,12 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(DepositWalletNotFoundByAssetIdException.class)
 	public ResponseEntity<ErrorResponse> handleDepositWalletNotFoundByAssetIdException(DepositWalletNotFoundByAssetIdException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(new ErrorResponse(ERROR_DEPOSIT_WALLET_NOT_FOUND, ex.getMessage()));
+	}
+
+	@ExceptionHandler(DepositWalletNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleDepositWalletNotFoundException(DepositWalletNotFoundException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(new ErrorResponse(ERROR_DEPOSIT_WALLET_NOT_FOUND, ex.getMessage()));
 	}

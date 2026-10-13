@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -34,6 +35,11 @@ public class WalletController {
     @GetMapping
     public ResponseEntity<List<WalletResponse>> getAllUserWallets(){
         return ResponseEntity.ok(walletMapper.toWalletResponses(walletService.getAllUserWallets()));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<WalletResponse> getUserWallet(@PathVariable Long id) {
+        return ResponseEntity.ok(walletMapper.toWalletResponse(walletService.getUserWallet(id)));
     }
 
     @PostMapping

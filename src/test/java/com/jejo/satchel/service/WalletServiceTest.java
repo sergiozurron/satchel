@@ -1,6 +1,7 @@
 package com.jejo.satchel.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -9,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
+import com.jejo.satchel.exception.DepositWalletNotFoundException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
@@ -189,6 +192,51 @@ public class WalletServiceTest {
 		// Assert
 		assertThat(result.get(0).getAvailableBalance())
 				.isEqualByComparingTo(new BigDecimal("35.00"));
+	}
+
+	// Tests for getUserWallet() method
+
+	@Test
+	void getUserWallet_shouldReturnTheCurrentUsersWallet() {
+		DepositWallet wallet = DepositWallet.builder().id(7L).address("0x5555555555555555")
+				.assetId(testAssetId).balance(new BigDecimal("250.75"))
+				.lockedBalance(new BigDecimal("50.25")).openedAt(LocalDateTime.now().minusDays(7))
+				.user(testUser).build();
+
+		when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
+		when(depositWalletRepository.findByIdAndUserId(7L, testUser.getId()))
+				.thenReturn(Optional.of(wallet));
+
+		DepositWallet result = walletService.getUserWallet(7L);
+
+		assertThat(result).isSameAs(wallet);
+		verify(depositWalletRepository).findByIdAndUserId(7L, testUser.getId());
+	}
+
+	@Test
+	void getUserWallet_shouldThrowDepositWalletNotFoundException_whenWalletDoesNotExist() {
+		when(currentUserProvider.getCurrentUser()).thenReturn(testUser);
+		when(depositWalletRepository.findByIdAndUserId(99L, testUser.getId()))
+				.thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> walletService.getUserWallet(99L))
+				.isInstanceOf(DepositWalletNotFoundException.class)
+				.hasMessage("Deposit wallet not found");
+
+		verify(depositWalletRepository).findByIdAndUserId(99L, testUser.getId());
+	}
+
+	@Test
+	void getUserWallet_shouldQueryOnlyTheCurrentUser() {
+		User other = User.builder().id(99L).build();
+		when(currentUserProvider.getCurrentUser()).thenReturn(other);
+		when(depositWalletRepository.findByIdAndUserId(1L, 99L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> walletService.getUserWallet(1L))
+				.isInstanceOf(DepositWalletNotFoundException.class);
+
+		verify(depositWalletRepository).findByIdAndUserId(1L, 99L);
+		verify(depositWalletRepository, never()).findByIdAndUserId(1L, testUser.getId());
 	}
 
 }
