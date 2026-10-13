@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -227,6 +228,47 @@ public class AccountServiceTest {
 		assertThat(pending.getIsCompleted()).isFalse();
 		assertThat(pending.getTransactionId()).isNull();
 		assertThat(pending.getTimestamp()).isNotNull();
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldPreserveRepositoryOrder() {
+		stubCurrentUser();
+		FundsTransfer newer = FundsTransfer.builder().id(2L).amount(new BigDecimal("-10"))
+				.timestamp(LocalDateTime.of(2026, 3, 2, 12, 0)).isCompleted(false).build();
+		FundsTransfer older = FundsTransfer.builder().id(1L).amount(new BigDecimal("40"))
+				.timestamp(LocalDateTime.of(2026, 1, 1, 8, 0)).isCompleted(true).build();
+		when(fundsTransferRepository.findAllByDepositWallet_User_IdOrderByTimestampDesc(USER_ID))
+				.thenReturn(List.of(newer, older));
+
+		List<FundsTransfer> result = accountService.getAllUserFundsTransfers();
+
+		assertThat(result).containsExactly(newer, older);
+		verify(fundsTransferRepository).findAllByDepositWallet_User_IdOrderByTimestampDesc(USER_ID);
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldReturnEmptyList() {
+		stubCurrentUser();
+		when(fundsTransferRepository.findAllByDepositWallet_User_IdOrderByTimestampDesc(USER_ID))
+				.thenReturn(List.of());
+
+		List<FundsTransfer> result = accountService.getAllUserFundsTransfers();
+
+		assertThat(result).isNotNull();
+		assertThat(result).isEmpty();
+		verify(fundsTransferRepository).findAllByDepositWallet_User_IdOrderByTimestampDesc(USER_ID);
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldQueryOnlyTheCurrentUser() {
+		User other = User.builder().id(99L).build();
+		when(currentUserProvider.getCurrentUser()).thenReturn(other);
+		when(fundsTransferRepository.findAllByDepositWallet_User_IdOrderByTimestampDesc(99L)).thenReturn(List.of());
+
+		accountService.getAllUserFundsTransfers();
+
+		verify(fundsTransferRepository).findAllByDepositWallet_User_IdOrderByTimestampDesc(99L);
+		verify(fundsTransferRepository, never()).findAllByDepositWallet_User_IdOrderByTimestampDesc(USER_ID);
 	}
 
 	private User stubCurrentUser() {

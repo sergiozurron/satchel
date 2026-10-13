@@ -143,4 +143,10 @@ public class AccountService {
 				});
 	}
 
+	@Transactional
+	public List<FundsTransfer> getAllUserFundsTransfers() {
+		Long userId = currentUserProvider.getCurrentUser().getId();
+		return fundsTransferRepository.findAllByDepositWallet_User_IdOrderByTimestampDesc(userId);
+	}
+
 }

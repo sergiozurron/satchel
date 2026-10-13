@@ -259,7 +259,16 @@ The platform:
 2. Creates a withdrawal transaction from the omnibus vault via Fireblocks.
 3. Debits your internal account once the transaction is confirmed.
 
-Monitor the status through the Fireblocks console or by inspecting subsequent webhook processing.
+Monitor the status through the Fireblocks console or by listing your transfers.
+
+**List your funds transfers**
+
+```bash
+curl http://localhost:8080/api/v1/funds_transfer \
+  -H "Authorization: Bearer YOUR_JWT"
+```
+
+The response is the current user's transfers, newest first. Each item has `id`, `amount` (positive for a deposit, negative for a withdrawal), `timestamp`, `transactionId`, `counterpartyAddress`, `isCompleted`, `walletId`, and `assetId`. A pending withdrawal has `isCompleted` false until the webhook confirms it. An empty history is `[]`.
 
 
 ### 4. How to Request a Loan
@@ -317,6 +326,7 @@ The response is the updated loan, including the remaining outstanding amount and
 | POST   | `/api/v1/auth/login`                  | Obtain JWT                           | No            |
 | GET    | `/api/v1/wallets`                     | List user’s deposit wallets          | Yes           |
 | POST   | `/api/v1/wallets`                     | Create a deposit wallet and return it | Yes           |
+| GET    | `/api/v1/funds_transfer`              | List the current user's transfers    | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan and return it     | Yes           |

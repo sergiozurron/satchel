@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -121,6 +122,73 @@ public class FundsTransferControllerIntTest {
 				.andExpect(jsonPath("$", Matchers.hasSize(1)))
 				.andExpect(jsonPath("$[0].error").value("ValidAssetId"))
 				.andExpect(jsonPath("$[0].message").value("Asset not supported"));
+
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldReturnEmptyList_whenUserHasNoTransfers() throws Exception {
+		mockMvc.perform(get("/api/v1/funds_transfer")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(0)));
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldReturnCallersTransfersNewestFirst() throws Exception {
+		DepositWallet wallet = saveWallet(testUser, "0xsource", "100", "0");
+		FundsTransfer older = saveTransfer(wallet, "100.0000000", "0xfaucet",
+				LocalDateTime.of(2026, 1, 1, 8, 0), true, null);
+		FundsTransfer newer = saveTransfer(wallet, "-25.0000000", "0xexternal",
+				LocalDateTime.of(2026, 6, 2, 15, 0), false, "tx-pending");
+
+		User otherUser = saveOtherUser();
+		DepositWallet otherWallet = saveWallet(otherUser, "0xother", "50", "0");
+		FundsTransfer otherTransfer = saveTransfer(otherWallet, "7.0000000", "0xsomewhere",
+				LocalDateTime.of(2026, 7, 1, 9, 0), true, "tx-other");
+
+		mockMvc.perform(get("/api/v1/funds_transfer")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
+				.andExpect(status().isOk())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$", Matchers.hasSize(2)))
+				.andExpect(jsonPath("$[0].id", Matchers.equalTo(newer.getId().intValue())))
+				.andExpect(jsonPath("$[0].amount", Matchers.equalTo(-25.0)))
+				.andExpect(jsonPath("$[0].transactionId", Matchers.equalTo("tx-pending")))
+				.andExpect(jsonPath("$[0].counterpartyAddress", Matchers.equalTo("0xexternal")))
+				.andExpect(jsonPath("$[0].isCompleted", Matchers.equalTo(false)))
+				.andExpect(jsonPath("$[0].walletId", Matchers.equalTo(wallet.getId().intValue())))
+				.andExpect(jsonPath("$[0].assetId", Matchers.equalTo(ASSET_ID)))
+				.andExpect(jsonPath("$[0].timestamp", Matchers.notNullValue()))
+				.andExpect(jsonPath("$[0].depositWallet").doesNotExist())
+				.andExpect(jsonPath("$[0].user").doesNotExist())
+				.andExpect(jsonPath("$[0].password").doesNotExist())
+				.andExpect(jsonPath("$[1].id", Matchers.equalTo(older.getId().intValue())))
+				.andExpect(jsonPath("$[1].amount", Matchers.equalTo(100.0)))
+				.andExpect(jsonPath("$[1].isCompleted", Matchers.equalTo(true)))
+				.andExpect(jsonPath("$[1].transactionId").value(Matchers.nullValue()))
+				.andExpect(jsonPath("$[0].id", Matchers.not(Matchers.equalTo(otherTransfer.getId().intValue()))))
+				.andExpect(jsonPath("$[1].id", Matchers.not(Matchers.equalTo(otherTransfer.getId().intValue()))));
+
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
+	}
+
+	@Test
+	void getAllUserFundsTransfers_shouldReturnForbidden_whenNoTokenProvided() throws Exception {
+		mockMvc.perform(get("/api/v1/funds_transfer")).andExpect(status().isForbidden());
+	}
+
+	@Test
+	void handleTransactionStatusUpdatedWebhook_shouldNotRequireAuthentication() throws Exception {
+		String body = "{\"eventType\":\"TRANSACTION_STATUS_UPDATED\",\"data\":{"
+				+ "\"id\":\"tx-public\",\"status\":\"PENDING\",\"subStatus\":\"PENDING\","
+				+ "\"sourceAddress\":\"0xsource\",\"destinationAddress\":\"0xdest\"}}";
+
+		mockMvc.perform(post("/api/v1/funds_transfer")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
+				.andExpect(status().isOk());
 
 		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 	}
@@ -309,6 +377,18 @@ public class FundsTransferControllerIntTest {
 		return fundsTransferRepository.findAll().stream()
 				.filter(transfer -> walletId.equals(transfer.getDepositWallet().getId()))
 				.toList();
+	}
+
+	private FundsTransfer saveTransfer(DepositWallet wallet, String amount, String counterparty,
+			LocalDateTime timestamp, boolean completed, String transactionId) {
+		return fundsTransferRepository.save(FundsTransfer.builder()
+				.depositWallet(wallet)
+				.amount(new BigDecimal(amount))
+				.counterpartyAddress(counterparty)
+				.timestamp(timestamp)
+				.isCompleted(completed)
+				.transactionId(transactionId)
+				.build());
 	}
 
 }

@@ -1,6 +1,7 @@
 package com.jejo.satchel.repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,5 @@ public interface FundsTransferRepository extends JpaRepository<FundsTransfer, Lo
 	public Optional<FundsTransfer> findByTransactionId(String transactionId);
 	public boolean existsByTransactionIdAndIsCompleted(String transactionId, Boolean isCompleted);
 	public boolean existsByTransactionId(String transactionId);
+	public List<FundsTransfer> findAllByDepositWallet_User_IdOrderByTimestampDesc(Long userId);
 }
