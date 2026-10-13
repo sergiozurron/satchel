@@ -185,6 +185,8 @@ Deposits are credit-on-arrival: you create a deposit address belonging to your u
 
 **Step 1 – Create a deposit wallet**
 
+The response is the created wallet, with the same fields as one item from `GET /api/v1/wallets` (`id`, `address`, `assetId`, `balance`, `lockedBalance`, `availableBalance`, `accruedInterest`, `openedAt`, `daysSinceOpened`). Use `address` as the deposit destination.
+
 ```bash
 # For USDC (Sepolia)
 curl -X POST http://localhost:8080/api/v1/wallets \
@@ -306,7 +308,7 @@ The response includes the remaining outstanding amount and the new loan status (
 | GET    | `/api/v1/auth/email-verification`     | Verify email with token              | No            |
 | POST   | `/api/v1/auth/login`                  | Obtain JWT                           | No            |
 | GET    | `/api/v1/wallets`                     | List user’s deposit wallets          | Yes           |
-| POST   | `/api/v1/wallets`                     | Create a deposit wallet for an asset | Yes           |
+| POST   | `/api/v1/wallets`                     | Create a deposit wallet and return it | Yes           |
 | POST   | `/api/v1/funds_transfer/withdrawal`   | Initiate a withdrawal                | Yes           |
 | GET    | `/api/v1/loans`                       | List the current user's loans        | Yes           |
 | POST   | `/api/v1/loans`                       | Request a new loan                   | Yes           |

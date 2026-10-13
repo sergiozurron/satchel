@@ -6,8 +6,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jejo.satchel.dto.CreateDepositWalletRequest;
-import com.jejo.satchel.dto.Response;
 import com.jejo.satchel.dto.WalletResponse;
+import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.mapper.WalletMapper;
 import com.jejo.satchel.service.WalletService;
 
@@ -37,9 +37,9 @@ public class WalletController {
     }
 
     @PostMapping
-    public ResponseEntity<Response> createDepositWallet(@Valid @RequestBody CreateDepositWalletRequest request){
-        walletService.createDepositWallet(request.getAssetId());
-        return ResponseEntity.ok(new Response("Deposit wallet created successfully"));
+    public ResponseEntity<WalletResponse> createDepositWallet(@Valid @RequestBody CreateDepositWalletRequest request){
+        DepositWallet created = walletService.createDepositWallet(request.getAssetId());
+        return ResponseEntity.ok(walletMapper.toWalletResponse(created));
     }
 
 }

@@ -65,9 +65,14 @@ public class WalletServiceTest {
 				.thenAnswer(invocation -> invocation.getArgument(0));
 
 		// Act
-		walletService.createDepositWallet(testAssetId);
+		DepositWallet created = walletService.createDepositWallet(testAssetId);
 
 		// Assert
+		assertThat(created.getAddress()).isEqualTo(walletAddress);
+		assertThat(created.getAssetId()).isEqualTo(testAssetId);
+		assertThat(created.getBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+		assertThat(created.getLockedBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+		assertThat(created.getAccruedInterest()).isEqualByComparingTo(BigDecimal.ZERO);
 		verify(currentUserProvider, times(2)).getCurrentUser();
 		verify(assetCustodianService, times(1)).getDepositAddress(testUser.getId(), testAssetId);
 	}

@@ -29,7 +29,7 @@ public class WalletService {
     }
 
     @Transactional
-    public void createDepositWallet(String assetId) {
+    public DepositWallet createDepositWallet(String assetId) {
         Long currentUser= currentUserProvider.getCurrentUser().getId();
         if (depositWalletRepository.findByUserIdAndAssetId(currentUser, assetId).isPresent()) {
         	throw new DepositWalletAlreadyExistsException(assetId);
@@ -46,7 +46,7 @@ public class WalletService {
         depositWallet.setLockedBalance(BigDecimal.ZERO);
         depositWallet.setAccruedInterest(BigDecimal.ZERO);
         depositWallet.setOpenedAt(LocalDateTime.now());
-        depositWalletRepository.save(depositWallet);
+        return depositWalletRepository.save(depositWallet);
     }
 
     @Transactional

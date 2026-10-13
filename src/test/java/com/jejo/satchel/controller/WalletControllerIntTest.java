@@ -122,7 +122,19 @@ public class WalletControllerIntTest {
 				// Assert
 				.andExpect(status().isOk())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.message").value("Deposit wallet created successfully"));
+				.andExpect(jsonPath("$.address").value(testWalletAddress))
+				.andExpect(jsonPath("$.assetId").value(testAssetId))
+				.andExpect(jsonPath("$.balance").value(0.0))
+				.andExpect(jsonPath("$.lockedBalance").value(0.0))
+				.andExpect(jsonPath("$.availableBalance").value(0.0))
+				.andExpect(jsonPath("$.accruedInterest").value(0.0))
+				.andExpect(jsonPath("$.daysSinceOpened").value(0))
+				.andExpect(jsonPath("$.openedAt").exists())
+				.andExpect(jsonPath("$.id").value(depositWalletRepository
+						.findByUserIdAndAssetId(testUser.getId(), testAssetId)
+						.orElseThrow()
+						.getId()
+						.intValue()));
 
 		DepositWallet saved = depositWalletRepository
 				.findByUserIdAndAssetId(testUser.getId(), testAssetId)
