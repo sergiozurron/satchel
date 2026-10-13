@@ -3,12 +3,14 @@ package com.jejo.satchel.controller;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.UserRepository;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
+@ActiveProfiles("test")
 public class FundsTransferControllerFullIntTest {
 
 	@Autowired
