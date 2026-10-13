@@ -62,7 +62,8 @@ public class LoanService {
 			throw new InsufficientCollateralException();
 		}
 		BigDecimal ltvCollateral = assetLtv.get(collateralAssetId).multiply(collateralAmount);
-		BigDecimal loanAmount = conversionRateService.getConversionRate(collateralAssetId, loanAssetId).multiply(ltvCollateral);
+		BigDecimal loanAmount = conversionRateService
+				.getConversionRate(collateralAssetId, loanAssetId).multiply(ltvCollateral);
 		BigDecimal omnibusBalance = assetCustodianService.getPoolSize(loanAssetId);
 		if (omnibusBalance.compareTo(loanAmount) < 0) {
 			throw new ExcesiveEquivalentAmountException(omnibusBalance);
@@ -103,19 +104,23 @@ public class LoanService {
 		}
 
 		// Find deposit wallet for the loan asset and verify sufficient balance
-		DepositWallet depositWallet = depositWalletRepository
-				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId()).orElseThrow(
-						() -> new DepositWalletNotFoundByAssetIdException(loan.getLoanAssetId()));
+		DepositWallet loanDepositWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loan.getLoanAssetId()).get();
 
-		BigDecimal availableBalance = depositWallet.getAvailableBalance();
+		BigDecimal availableBalance = loanDepositWallet.getAvailableBalance();
 		if (availableBalance.compareTo(repaymentAmount) < 0) {
 			throw new InsufficientFundsException();
 		}
 
 		BigDecimal actualRepaymentAmount = repaymentAmount.min(loan.getOutstandingAmount());
 		// Debit the deposit wallet
-		depositWallet.withdraw(actualRepaymentAmount);
-		depositWalletRepository.save(depositWallet);
+		loanDepositWallet.withdraw(actualRepaymentAmount);
+
+		// Find deposit wallet for the loan collateral and unlock balance
+		DepositWallet collateralDepositWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loan.getCollateralAssetId()).get();
+		
+		collateralDepositWallet.unlockBalance(loan.getCollateralAmount());
 
 		// Update loan with repayment
 		loan.returnAmount(actualRepaymentAmount);
@@ -125,7 +130,7 @@ public class LoanService {
 			loan.setStatus(LoanStatus.PAID);
 		}
 
-		return loanRepository.save(loan);
+		return loan;
 	}
 
 	@Transactional

@@ -64,6 +64,10 @@ public class DepositWallet {
 		this.lockedBalance = this.lockedBalance.add(amount);
 	}
 	
+	public void unlockBalance(BigDecimal amount) {
+		this.lockedBalance = this.lockedBalance.subtract(amount);
+	}
+	
 	public void accrueInterest(BigDecimal amount) {
 		accruedInterest = accruedInterest.add(amount);
 	}

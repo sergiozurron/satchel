@@ -72,6 +72,7 @@ public class LoanControllerIntTest {
 	private User testUser;
 	private Loan activeLoan;
 	private DepositWallet depositWallet;
+	private DepositWallet collateralWallet;
 	private String jwtToken;
 
 	@BeforeEach
@@ -95,6 +96,13 @@ public class LoanControllerIntTest {
 				.accruedInterest(BigDecimal.ZERO).openedAt(LocalDateTime.now()).user(testUser)
 				.build();
 		depositWallet = depositWalletRepository.save(depositWallet);
+
+		// Collateral locked at origination; repayment unlocks this balance
+		collateralWallet = DepositWallet.builder().address("0xethcollateral").assetId("ETH")
+				.balance(new BigDecimal("2.0000000")).lockedBalance(new BigDecimal("0.5000000"))
+				.accruedInterest(BigDecimal.ZERO).openedAt(LocalDateTime.now()).user(testUser)
+				.build();
+		collateralWallet = depositWalletRepository.save(collateralWallet);
 
 		// Create active loan
 		activeLoan = Loan.builder().loanAssetId("USDC").collateralAssetId("ETH")
@@ -132,6 +140,14 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
 				.andExpect(jsonPath("$.user").doesNotExist())
 				.andExpect(jsonPath("$.password").doesNotExist());
+
+		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("900");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedCollateral.getBalance()).isEqualByComparingTo("2");
 	}
 
 	@Test
@@ -150,6 +166,16 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(505.0)))
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(0.0)))
 				.andExpect(jsonPath("$.status", Matchers.equalTo("PAID")));
+
+		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
+		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("495");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedLoan.getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(updatedLoan.getReturnedAmount()).isEqualByComparingTo("505");
 	}
 
 	@Test
@@ -226,6 +252,13 @@ public class LoanControllerIntTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isBadRequest());
+
+		DepositWallet unchangedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		DepositWallet unchangedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(unchangedLoanWallet.getBalance()).isEqualByComparingTo("10");
+		assertThat(unchangedCollateral.getLockedBalance()).isEqualByComparingTo("0.5");
 	}
 
 	@Test
@@ -246,8 +279,11 @@ public class LoanControllerIntTest {
 		DepositWallet updatedWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
 		BigDecimal expectedBalance = initialBalance.subtract(repaymentAmount);
-		org.assertj.core.api.Assertions.assertThat(updatedWallet.getBalance())
-				.isEqualTo(expectedBalance);
+		assertThat(updatedWallet.getBalance()).isEqualTo(expectedBalance);
+		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedCollateral.getBalance()).isEqualByComparingTo("2");
 	}
 
 	@Test
@@ -305,9 +341,16 @@ public class LoanControllerIntTest {
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk());
 
-		// Then - Verify loan's returned amount was updated
+		// Then - Verify loan's returned amount was updated and collateral was unlocked
 		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
 		assertThat(updatedLoan.getReturnedAmount()).isEqualTo(repaymentAmount);
+		assertThat(updatedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("850");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
 	}
 
 	@Test
@@ -334,6 +377,56 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(300.0)))
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(205.0)))
 				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")));
+
+		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("700");
+		// Each repayment unlocks the full collateral amount
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("-0.5");
+	}
+
+	@Test
+	void repayLoan_shouldReturnInternalServerError_whenLoanWalletMissing() throws Exception {
+		depositWalletRepository.delete(depositWallet);
+
+		LoanRepaymentRequest repaymentRequest = LoanRepaymentRequest.builder()
+				.loanId(activeLoan.getId()).amount(new BigDecimal("100.0000000")).build();
+
+		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(repaymentRequest)))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INTERNAL_SERVER_ERROR));
+
+		Loan unchangedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
+		DepositWallet unchangedCollateral = depositWalletRepository.findById(collateralWallet.getId())
+				.orElseThrow();
+		assertThat(unchangedLoan.getReturnedAmount()).isEqualByComparingTo("0");
+		assertThat(unchangedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(unchangedCollateral.getLockedBalance()).isEqualByComparingTo("0.5");
+	}
+
+	@Test
+	void repayLoan_shouldReturnInternalServerError_whenCollateralWalletMissing() throws Exception {
+		depositWalletRepository.delete(collateralWallet);
+
+		LoanRepaymentRequest repaymentRequest = LoanRepaymentRequest.builder()
+				.loanId(activeLoan.getId()).amount(new BigDecimal("100.0000000")).build();
+
+		mockMvc.perform(put("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(repaymentRequest)))
+				.andExpect(status().isInternalServerError())
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INTERNAL_SERVER_ERROR));
+
+		Loan unchangedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
+		DepositWallet unchangedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
+				.orElseThrow();
+		assertThat(unchangedLoan.getReturnedAmount()).isEqualByComparingTo("0");
+		assertThat(unchangedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(unchangedLoanWallet.getBalance()).isEqualByComparingTo("1000");
 	}
 
 	@Test
