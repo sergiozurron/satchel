@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import com.jejo.satchel.model.Loan;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
-	@Query("select loan from Loan loan where loan.amount + loan.accruedInterest <= loan.returnedAmount")
+	@Query("select loan from Loan loan where loan.amount + loan.accruedInterest > loan.returnedAmount")
 	List<Loan> findAllUnpaid();
 	public List<Loan> findAllByUserIdOrderByGrantedAtDesc(Long userId);
 	public Optional<Loan> findByIdAndUserId(Long loanId, Long userId);
