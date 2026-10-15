@@ -22,13 +22,13 @@ Withdrawals of any supported asset are paid directly from the omnibus vault to t
 ### Loan-to-Value
 When a loan is opened, the platform sizes it from the collateral asset’s configured LTV: `ltv × collateral amount`, converted into the borrowed asset at the current price. LTV comes from configuration for that collateral asset.
 
-The same schedule checks unpaid loans. Current LTV is outstanding debt divided by the value of `currentCollateral`. If that ratio is above the collateral asset’s `liquidation-ltv`, the platform sells enough remaining collateral to bring LTV back to the origination LTV. The sale is a mock price conversion and does not move vault balances. `collateralAmount` stays the amount locked at origination. `currentCollateral` is what remains. `isPaid` becomes true only when outstanding debt hits zero.
+The same schedule checks unpaid loans. Current LTV is outstanding debt divided by the value of `currentCollateral`. If that ratio is above the collateral asset’s `liquidation-ltv`, the platform sells enough remaining collateral to bring LTV back to the origination LTV. The sale is a mock price conversion and does not move vault balances. `collateralAmount` stays the amount locked at origination. `currentCollateral` is what remains. `isPaid` is derived from outstanding debt and is true only when that debt is zero.
 
 ### Automated Background Tasks
 The platform accrues interest and checks loan LTV on `satchel.financial.accrual-period`:
 
 - Deposit interest for an asset is that asset’s annual rate multiplied by `(1 − fin margin)`.
-- Loan interest uses the borrowed asset’s annual rate and accrues while `isPaid` is false.
+- Loan interest uses the borrowed asset’s annual rate and accrues while outstanding debt is above zero.
 - An unpaid loan above its collateral asset’s liquidation LTV has part of `currentCollateral` sold, on paper, back to the origination LTV.
 
 ### Deposit Handling
@@ -336,7 +336,7 @@ curl -X PUT http://localhost:8080/api/v1/loans/42 \
   }'
 ```
 
-The response is the updated loan, including the remaining outstanding amount and `isPaid`. `isPaid` is true only when outstanding debt is zero. Repayment is debited from your deposit wallet for the loan’s asset. A loan that is already paid is rejected.
+The response is the updated loan, including the remaining outstanding amount and `isPaid`. `isPaid` is derived from outstanding debt and is true only when that debt is zero. Repayment is debited from your deposit wallet for the loan’s asset. A loan that is already paid is rejected.
 
 ## API Overview
 

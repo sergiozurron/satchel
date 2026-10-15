@@ -30,7 +30,7 @@ import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
-import com.jejo.satchel.exception.LoanNotActiveException;
+import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
@@ -65,9 +65,7 @@ class LoanServiceTest {
 	private AssetCustodianService assetCustodianService;
 
 	@Mock
-	private CoingeckoConversionRateService conversionRateService; // also used as assetPriceService
-																	// in repay
-	// tests
+	private ConversionRateService conversionRateService;
 
 	private User currentUser;
 
@@ -233,7 +231,7 @@ class LoanServiceTest {
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
 				.currentCollateral(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(false)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(user).build();
 	}
@@ -334,14 +332,14 @@ class LoanServiceTest {
 		// Given
 		User user = createTestUser();
 		Loan paidLoan = createActiveLoan(user);
-		paidLoan.setPaid(true);
+		paidLoan.setReturnedAmount(new BigDecimal("505.0000000"));
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(paidLoan));
 
 		// When & Then
 		assertThatThrownBy(() -> loanService.repayLoan(1L, new BigDecimal("100.0000000")))
-				.isInstanceOf(LoanNotActiveException.class);
+				.isInstanceOf(LoanAlreadyPaidException.class);
 	}
 
 	@Test
@@ -593,14 +591,14 @@ class LoanServiceTest {
 		Loan newer = Loan.builder().id(2L).loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(false)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(newerGrantedAt).user(user)
 				.build();
 
 		Loan older = Loan.builder().id(1L).loanAssetId("ETH_TEST5").collateralAssetId("AVAXTEST")
 				.returnedAmount(new BigDecimal("10.0000000")).amount(new BigDecimal("100.0000000"))
 				.collateralAmount(new BigDecimal("1.0000000"))
-				.interestRate(new BigDecimal("0.080000")).isPaid(true)
+				.interestRate(new BigDecimal("0.080000"))
 				.accruedInterest(new BigDecimal("1.0000000")).grantedAt(olderGrantedAt).user(user)
 				.build();
 
@@ -644,7 +642,7 @@ class LoanServiceTest {
 	void getUserLoan_shouldReturnTheCurrentUsersLoan() {
 		Loan paidLoan = createActiveLoan(currentUser);
 		paidLoan.setId(7L);
-		paidLoan.setPaid(true);
+		paidLoan.setReturnedAmount(new BigDecimal("505.0000000"));
 
 		when(loanRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(paidLoan));
 

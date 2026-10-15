@@ -43,8 +43,6 @@ public class Loan {
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Column(nullable = false)
-	private boolean isPaid;
-	@Column(nullable = false)
 	private BigDecimal accruedInterest; // Accrued interest
 	@Column(nullable = false)
 	private LocalDateTime grantedAt;
@@ -67,12 +65,10 @@ public class Loan {
 	public void liquidate(BigDecimal collateralSold, BigDecimal proceeds) {
 		currentCollateral = currentCollateral.subtract(collateralSold);
 		returnAmount(proceeds);
-		if (isPaidOut())
-			this.isPaid = true;
 	}
-	
-	public boolean isPaidOut() {
-		return getOutstandingAmount().compareTo(BigDecimal.ZERO) == 0;
+
+	public boolean isPaid() {
+		return getOutstandingAmount().compareTo(BigDecimal.ZERO) <= 0;
 	}
 
 }

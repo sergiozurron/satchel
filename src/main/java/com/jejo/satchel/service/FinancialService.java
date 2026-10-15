@@ -72,7 +72,7 @@ public class FinancialService {
 	@Scheduled(fixedRateString = "${satchel.financial.accrual-period}")
 	@Transactional
 	public void accrueInterestOnActiveLoans() {
-		loanRepository.findAllByIsPaid(false).forEach(loan -> {
+		loanRepository.findAllUnpaid().forEach(loan -> {
 			BigDecimal periodicInterestRate = assetInterestRates.get(loan.getLoanAssetId())
 					.divide(BigDecimal.valueOf(MILIS_IN_YEAR), 12, RoundingMode.HALF_UP);
 			BigDecimal interest = loan.getAmount().multiply(periodicInterestRate);
@@ -85,7 +85,7 @@ public class FinancialService {
 	@Scheduled(fixedRateString = "${satchel.financial.ltv-check-period}")
 	@Transactional
 	public void liquidateUnhealthyLoans() {
-		loanRepository.findAllByIsPaid(false).forEach(loan -> {
+		loanRepository.findAllUnpaid().forEach(loan -> {
 			try {
 				BigDecimal collateral = loan.getCurrentCollateral();
 				BigDecimal debt = loan.getOutstandingAmount();

@@ -14,7 +14,7 @@ import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.LoanNotFoundException;
-import com.jejo.satchel.exception.LoanNotActiveException;
+import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.model.User;
@@ -83,7 +83,7 @@ public class LoanService {
 		Loan newLoan = loanRepository.save(Loan.builder().returnedAmount(BigDecimal.ZERO)
 				.loanAssetId(loanAssetId).amount(loanAmount).collateralAmount(collateralAmount)
 				.currentCollateral(collateralAmount).collateralAssetId(collateralAssetId)
-				.interestRate(assetInterestRates.get(loanAssetId)).isPaid(false)
+				.interestRate(assetInterestRates.get(loanAssetId))
 				.accruedInterest(BigDecimal.ZERO).grantedAt(grantedAt).user(currentUser).build());
 
 		return newLoan;
@@ -98,7 +98,7 @@ public class LoanService {
 				.orElseThrow(LoanNotFoundException::new);
 
 		if (loan.isPaid()) {
-			throw new LoanNotActiveException();
+			throw new LoanAlreadyPaidException(loanId);
 		}
 
 		// Find deposit wallet for the loan asset and verify sufficient balance
@@ -122,10 +122,6 @@ public class LoanService {
 
 		// Update loan with repayment
 		loan.returnAmount(actualRepaymentAmount);
-
-		if (loan.isPaidOut()) {
-			loan.setPaid(true);
-		}
 
 		return loan;
 	}

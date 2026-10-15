@@ -27,15 +27,15 @@ class LoanMapperTest {
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
 				.currentCollateral(new BigDecimal("0.4000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(false)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(newerGrantedAt).user(user)
 				.build();
 
 		Loan older = Loan.builder().id(1L).loanAssetId("ETH_TEST5").collateralAssetId("AVAXTEST")
-				.returnedAmount(new BigDecimal("10.0000000")).amount(new BigDecimal("100.0000000"))
+				.returnedAmount(new BigDecimal("101.0000000")).amount(new BigDecimal("100.0000000"))
 				.collateralAmount(new BigDecimal("1.0000000"))
 				.currentCollateral(new BigDecimal("1.0000000"))
-				.interestRate(new BigDecimal("0.080000")).isPaid(true)
+				.interestRate(new BigDecimal("0.080000"))
 				.accruedInterest(new BigDecimal("1.0000000")).grantedAt(olderGrantedAt).user(user)
 				.build();
 
@@ -59,7 +59,7 @@ class LoanMapperTest {
 		assertThat(result.get(1).getId()).isEqualTo(1L);
 		assertThat(result.get(1).isPaid()).isTrue();
 		assertThat(result.get(1).getCurrentCollateral()).isEqualByComparingTo("1");
-		assertThat(result.get(1).getOutstandingAmount()).isEqualByComparingTo("91");
+		assertThat(result.get(1).getOutstandingAmount()).isEqualByComparingTo("0");
 	}
 
 }

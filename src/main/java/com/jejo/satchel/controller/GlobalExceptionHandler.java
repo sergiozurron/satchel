@@ -23,7 +23,7 @@ import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InvalidRepaymentAmountException;
-import com.jejo.satchel.exception.LoanNotActiveException;
+import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.exception.UnableToGetAddressException;
@@ -124,8 +124,8 @@ public class GlobalExceptionHandler {
 				.body(new ErrorResponse(ERROR_LOAN_NOT_FOUND, ex.getMessage()));
 	}
 	
-	@ExceptionHandler(LoanNotActiveException.class)
-	public ResponseEntity<ErrorResponse> handleLoanNotActiveException(LoanNotActiveException ex) {
+	@ExceptionHandler(LoanAlreadyPaidException.class)
+	public ResponseEntity<ErrorResponse> handleLoanNotActiveException(LoanAlreadyPaidException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT)
 				.body(new ErrorResponse(ERROR_LOAN_NOT_ACTIVE, ex.getMessage()));
 	}

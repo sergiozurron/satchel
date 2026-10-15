@@ -110,7 +110,7 @@ public class LoanControllerIntTest {
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
 				.currentCollateral(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(false)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(testUser).build();
 		activeLoan = loanRepository.save(activeLoan);
@@ -224,10 +224,10 @@ public class LoanControllerIntTest {
 	void repayLoan_shouldReturnBadRequest_whenLoanIsNotActive() throws Exception {
 		// Given - Create and save a paid loan
 		Loan paidLoan = Loan.builder().loanAssetId("USDC").collateralAssetId("ETH")
-				.returnedAmount(new BigDecimal("500.0000000")).amount(new BigDecimal("500.0000000"))
+				.returnedAmount(new BigDecimal("505.0000000")).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
 				.currentCollateral(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(true)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(testUser).build();
 		paidLoan = loanRepository.save(paidLoan);
@@ -458,7 +458,7 @@ public class LoanControllerIntTest {
 				.collateralAssetId("ETH").returnedAmount(BigDecimal.ZERO)
 				.amount(new BigDecimal("20.0000000")).collateralAmount(new BigDecimal("0.1000000"))
 				.currentCollateral(new BigDecimal("0.1000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(false)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(otherUser)
 				.build());
 
@@ -476,7 +476,7 @@ public class LoanControllerIntTest {
 				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
 				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
 				.currentCollateral(new BigDecimal("0.2000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(true)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(BigDecimal.ZERO).grantedAt(activeLoan.getGrantedAt().minusDays(2))
 				.user(testUser).build());
 
@@ -538,7 +538,7 @@ public class LoanControllerIntTest {
 				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
 				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
 				.currentCollateral(new BigDecimal("0.2000000"))
-				.interestRate(new BigDecimal("0.050000")).isPaid(true)
+				.interestRate(new BigDecimal("0.050000"))
 				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(testUser)
 				.build());
 
