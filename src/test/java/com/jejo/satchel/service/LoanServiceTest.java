@@ -277,8 +277,9 @@ class LoanServiceTest {
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("405.0000000"));
 		assertThat(result.isPaid()).isFalse();
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.4009901");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
 
 		verify(loanRepository).findByIdAndUserId(1L, 1L);
 		verify(depositWalletRepository).findByUserIdAndAssetId(1L, "USDC");
@@ -306,6 +307,7 @@ class LoanServiceTest {
 		// Then — requested 600 is capped at the 505 outstanding
 		assertThat(result.getReturnedAmount()).isEqualTo(new BigDecimal("505.0000000"));
 		assertThat(result.isPaid()).isTrue();
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("495");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 
@@ -408,7 +410,7 @@ class LoanServiceTest {
 	}
 
 	@Test
-	void repayLoan_shouldDebitLoanWalletAndUnlockFullCollateral() {
+	void repayLoan_shouldDebitLoanWalletAndUnlockProportionalCollateral() {
 		// Given
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
@@ -423,9 +425,9 @@ class LoanServiceTest {
 		// When
 		loanService.repayLoan(1L, repaymentAmount);
 
-		// Then — partial repayment still releases the entire collateral lock
+		// Then — 100 of 505 outstanding releases 0.0990099 of the 0.5 collateral
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
 		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
@@ -448,7 +450,7 @@ class LoanServiceTest {
 
 		// Then
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.3514852");
 	}
 
 	@Test
@@ -491,6 +493,7 @@ class LoanServiceTest {
 		// Then
 		assertThat(result.isPaid()).isTrue();
 		assertThat(result.getOutstandingAmount()).isEqualByComparingTo("0");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 	}
 
@@ -510,28 +513,30 @@ class LoanServiceTest {
 		BigDecimal firstRepayment = new BigDecimal("100.0000000");
 		Loan resultAfterFirst = loanService.repayLoan(1L, firstRepayment);
 
-		// Then - Verify first repayment unlocks the full collateral
+		// Then - Verify first repayment unlocks its share of collateral
 		assertThat(resultAfterFirst.getReturnedAmount()).isEqualTo(firstRepayment);
 		assertThat(resultAfterFirst.getOutstandingAmount())
 				.isEqualTo(new BigDecimal("405.0000000"));
 		assertThat(resultAfterFirst.isPaid()).isFalse();
+		assertThat(resultAfterFirst.getCurrentCollateral()).isEqualByComparingTo("0.4009901");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
 
 		// Given - Update loan for second repayment
 		activeLoan.setReturnedAmount(firstRepayment);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
 
-		// When - Second repayment unlocks the full collateral again
+		// When - Second repayment unlocks its share of the collateral still pledged
 		BigDecimal secondRepayment = new BigDecimal("200.0000000");
 		Loan resultAfterSecond = loanService.repayLoan(1L, secondRepayment);
 
-		// Then - Verify cumulative repayment and a second full unlock
+		// Then - Verify cumulative repayment and the remaining lock
 		assertThat(resultAfterSecond.getReturnedAmount()).isEqualTo(new BigDecimal("300.0000000"));
 		assertThat(resultAfterSecond.getOutstandingAmount())
 				.isEqualTo(new BigDecimal("205.0000000"));
+		assertThat(resultAfterSecond.getCurrentCollateral()).isEqualByComparingTo("0.2029703");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("700");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("-0.5");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.2029703");
 	}
 
 	@Test
@@ -550,12 +555,13 @@ class LoanServiceTest {
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
 
-		// Then — a tiny repayment still unlocks the entire collateral
+		// Then — a tiny repayment floors to no collateral release at scale 7
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("504.9999000"));
 		assertThat(result.isPaid()).isFalse();
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5000000");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("999.9999");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.5000000");
 	}
 
 	@Test

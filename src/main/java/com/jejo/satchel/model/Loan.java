@@ -39,7 +39,8 @@ public class Loan {
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal collateralAmount; // Collateral amount locked at origination
 	@Column(nullable = false, precision = 38, scale = 7)
-	private BigDecimal currentCollateral; // Collateral remaining after liquidations
+	private BigDecimal currentCollateral; // Collateral still pledged after liquidations and
+											// repayments
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Column(nullable = false)
@@ -49,19 +50,27 @@ public class Loan {
 	@ManyToOne
 	@JoinColumn(name = "user_id")
 	private User user;
-	
+
 	public BigDecimal getReturnedShare() {
 		return returnedAmount.divide(amount.add(accruedInterest), 6, RoundingMode.FLOOR);
 	}
-	
+
 	public BigDecimal getOutstandingAmount() {
 		return amount.add(accruedInterest).subtract(returnedAmount);
 	}
-	
+
 	public void returnAmount(BigDecimal amount) {
 		this.returnedAmount = this.returnedAmount.add(amount);
 	}
-	
+
+	public BigDecimal releaseCollateral(BigDecimal repayment) {
+		BigDecimal outstanding = getOutstandingAmount();
+		BigDecimal released = currentCollateral.multiply(repayment).divide(outstanding, 7,
+				RoundingMode.DOWN);
+		currentCollateral = currentCollateral.subtract(released);
+		return released;
+	}
+
 	public void liquidate(BigDecimal collateralSold, BigDecimal proceeds) {
 		currentCollateral = currentCollateral.subtract(collateralSold);
 		returnAmount(proceeds);

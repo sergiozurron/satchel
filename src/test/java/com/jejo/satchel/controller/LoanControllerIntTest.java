@@ -136,7 +136,6 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(405.0)))
 				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH")))
 				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(0.5)))
-				.andExpect(jsonPath("$.currentCollateral", Matchers.equalTo(0.5)))
 				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
 				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.0)))
@@ -148,8 +147,10 @@ public class LoanControllerIntTest {
 				.orElseThrow();
 		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
 				.orElseThrow();
+		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
 		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedLoan.getCurrentCollateral()).isEqualByComparingTo("0.4009901");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0.4009901");
 		assertThat(updatedCollateral.getBalance()).isEqualByComparingTo("2");
 	}
 
@@ -178,6 +179,7 @@ public class LoanControllerIntTest {
 		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("495");
 		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
 		assertThat(updatedLoan.isPaid()).isTrue();
+		assertThat(updatedLoan.getCurrentCollateral()).isEqualByComparingTo("0");
 		assertThat(updatedLoan.getReturnedAmount()).isEqualByComparingTo("505");
 	}
 
@@ -286,7 +288,7 @@ public class LoanControllerIntTest {
 		assertThat(updatedWallet.getBalance()).isEqualTo(expectedBalance);
 		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
 				.orElseThrow();
-		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0.4009901");
 		assertThat(updatedCollateral.getBalance()).isEqualByComparingTo("2");
 	}
 
@@ -338,12 +340,13 @@ public class LoanControllerIntTest {
 		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
 		assertThat(updatedLoan.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(updatedLoan.isPaid()).isFalse();
+		assertThat(updatedLoan.getCurrentCollateral()).isEqualByComparingTo("0.3514852");
 		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
 		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
 				.orElseThrow();
 		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("850");
-		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0.3514852");
 	}
 
 	@Test
@@ -376,8 +379,9 @@ public class LoanControllerIntTest {
 		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
 				.orElseThrow();
 		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("700");
-		// Each repayment unlocks the full collateral amount
-		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("-0.5");
+		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
+		assertThat(updatedLoan.getCurrentCollateral()).isEqualByComparingTo("0.2029703");
+		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0.2029703");
 	}
 
 	@Test

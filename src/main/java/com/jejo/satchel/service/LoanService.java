@@ -118,7 +118,8 @@ public class LoanService {
 		DepositWallet collateralDepositWallet = depositWalletRepository
 				.findByUserIdAndAssetId(currentUser.getId(), loan.getCollateralAssetId()).get();
 		
-		collateralDepositWallet.unlockBalance(loan.getCollateralAmount());
+		BigDecimal releasedCollateral = loan.releaseCollateral(actualRepaymentAmount);
+		collateralDepositWallet.unlockBalance(releasedCollateral);
 
 		// Update loan with repayment
 		loan.returnAmount(actualRepaymentAmount);
