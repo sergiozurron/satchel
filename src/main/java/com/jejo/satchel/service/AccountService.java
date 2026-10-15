@@ -130,6 +130,10 @@ public class AccountService {
 									.timestamp(LocalDateTime.now()).isCompleted(true).build());
 				}, () -> {
 					// Transfer to external account
+					BigDecimal poolSize = assetCustodianService.getPoolSize(assetId);
+					if (poolSize.compareTo(withdrawalRequest.getAmount()) < 0) {
+						throw new InsufficientFundsException();
+					}
 					String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
 							userId, withdrawalRequest.getDestinationAddress());
 					// isCompleted is false because we will wait for the webhook to confirm the

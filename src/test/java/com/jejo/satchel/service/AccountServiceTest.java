@@ -128,6 +128,7 @@ public class AccountServiceTest {
 				.isInstanceOf(DepositWalletNotFoundByAssetIdException.class);
 
 		verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
+		verify(assetCustodianService, never()).getPoolSize(any());
 		verifyNoWithdrawalSideEffects();
 	}
 
@@ -140,6 +141,7 @@ public class AccountServiceTest {
 
 		assertThat(source.getBalance()).isEqualByComparingTo("100");
 		verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
+		verify(assetCustodianService, never()).getPoolSize(any());
 		verifyNoWithdrawalSideEffects();
 	}
 
@@ -152,6 +154,7 @@ public class AccountServiceTest {
 
 		assertThat(source.getBalance()).isEqualByComparingTo("100");
 		verify(depositWalletRepository, never()).findByAddressAndAssetId(any(), any());
+		verify(assetCustodianService, never()).getPoolSize(any());
 		verifyNoWithdrawalSideEffects();
 	}
 
@@ -166,6 +169,7 @@ public class AccountServiceTest {
 				.isInstanceOf(SelfTransferException.class);
 
 		assertThat(ownWallet.getBalance()).isEqualByComparingTo("100");
+		verify(assetCustodianService, never()).getPoolSize(any());
 		verifyNoWithdrawalSideEffects();
 	}
 
@@ -186,6 +190,7 @@ public class AccountServiceTest {
 		assertThat(destination.getBalance()).isEqualByComparingTo("35");
 		verify(depositWalletRepository).save(source);
 		verify(depositWalletRepository).save(destination);
+		verify(assetCustodianService, never()).getPoolSize(any());
 		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 
 		ArgumentCaptor<FundsTransfer> captor = ArgumentCaptor.forClass(FundsTransfer.class);
@@ -212,11 +217,13 @@ public class AccountServiceTest {
 		BigDecimal amount = new BigDecimal("25");
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, ASSET_ID)).thenReturn(Optional.of(source));
 		when(depositWalletRepository.findByAddressAndAssetId("0xexternal", ASSET_ID)).thenReturn(Optional.empty());
+		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(amount);
 
 		accountService.initiateWithdrawal(withdrawalRequest("0xexternal", amount));
 
 		assertThat(source.getBalance()).isEqualByComparingTo("100");
 		verify(depositWalletRepository, never()).save(any());
+		verify(assetCustodianService).getPoolSize(ASSET_ID);
 		verify(assetCustodianService).createTransaction(eq(ASSET_ID), eq(amount), eq(USER_ID), eq("0xexternal"));
 
 		ArgumentCaptor<FundsTransfer> captor = ArgumentCaptor.forClass(FundsTransfer.class);
@@ -228,6 +235,20 @@ public class AccountServiceTest {
 		assertThat(pending.getIsCompleted()).isFalse();
 		assertThat(pending.getTransactionId()).isNull();
 		assertThat(pending.getTimestamp()).isNotNull();
+	}
+
+	@Test
+	void initiateWithdrawal_throwsInsufficientFunds_whenPoolIsBelowAmount() {
+		DepositWallet source = stubSourceWallet(new BigDecimal("100"), BigDecimal.ZERO);
+		when(depositWalletRepository.findByAddressAndAssetId("0xexternal", ASSET_ID)).thenReturn(Optional.empty());
+		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(new BigDecimal("24.99"));
+
+		assertThatThrownBy(() -> accountService.initiateWithdrawal(withdrawalRequest("0xexternal", new BigDecimal("25"))))
+				.isInstanceOf(InsufficientFundsException.class);
+
+		assertThat(source.getBalance()).isEqualByComparingTo("100");
+		verify(assetCustodianService).getPoolSize(ASSET_ID);
+		verifyNoWithdrawalSideEffects();
 	}
 
 	@Test

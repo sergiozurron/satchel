@@ -269,8 +269,9 @@ curl -X POST http://localhost:8080/api/v1/funds_transfer/withdrawal \
 
 The platform:
 1. Checks that you have sufficient ledger balance.
-2. Creates a withdrawal transaction from the omnibus vault via Fireblocks.
-3. Debits your internal account once the transaction is confirmed.
+2. For an external address, checks that the omnibus pool can cover the amount.
+3. Creates a withdrawal transaction from the omnibus vault via Fireblocks.
+4. Debits your internal account once the transaction is confirmed.
 
 Monitor the status through the Fireblocks console or by listing your transfers.
 

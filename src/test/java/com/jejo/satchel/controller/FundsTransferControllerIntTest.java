@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -304,6 +305,27 @@ public class FundsTransferControllerIntTest {
 		assertThat(destinationTransfers.get(0).getCounterpartyAddress()).isEqualTo("0xsource");
 		assertThat(destinationTransfers.get(0).getIsCompleted()).isTrue();
 
+		verify(assetCustodianService, never()).getPoolSize(any());
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
+	}
+
+	@Test
+	void initiateWithdrawal_shouldReturnBadRequest_WhenPoolIsBelowAmount() throws Exception {
+		DepositWallet source = saveWallet(testUser, "0xsource", "100", "0");
+		long transfersBefore = fundsTransferRepository.count();
+		BigDecimal amount = new BigDecimal("25");
+		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(new BigDecimal("10"));
+		WithdrawalRequest request = withdrawalRequest(ASSET_ID, "0xexternal", amount);
+
+		postWithdrawal(request, true)
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INSUFFICIENT_FUNDS))
+				.andExpect(jsonPath("$.message").value("Insufficient funds in account"));
+
+		assertThat(reload(source).getBalance()).isEqualByComparingTo("100");
+		assertThat(fundsTransferRepository.count()).isEqualTo(transfersBefore);
+		verify(assetCustodianService).getPoolSize(ASSET_ID);
 		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 	}
 
@@ -312,6 +334,7 @@ public class FundsTransferControllerIntTest {
 		DepositWallet source = saveWallet(testUser, "0xsource", "100", "40");
 		BigDecimal amount = new BigDecimal("59");
 		String destination = "0xexternal";
+		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(amount);
 		WithdrawalRequest request = withdrawalRequest(ASSET_ID, destination, amount);
 
 		postWithdrawal(request, true)
@@ -327,6 +350,7 @@ public class FundsTransferControllerIntTest {
 		assertThat(transfers.get(0).getIsCompleted()).isFalse();
 		assertThat(transfers.get(0).getTransactionId()).isNull();
 
+		verify(assetCustodianService).getPoolSize(ASSET_ID);
 		verify(assetCustodianService).createTransaction(eq(ASSET_ID), eq(amount), eq(testUser.getId()),
 				eq(destination));
 	}
