@@ -19,9 +19,9 @@ import com.jejo.satchel.exception.EmailTakenException;
 import com.jejo.satchel.exception.EmailVerificationTokenExpiredException;
 import com.jejo.satchel.exception.EmailVerificationTokenNotFoundException;
 import com.jejo.satchel.exception.EmailVerificationTokenUsedException;
-import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InvalidRepaymentAmountException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
@@ -50,6 +50,7 @@ public class GlobalExceptionHandler {
 	public static final String ERROR_UNVERIFIED_WEBHOOK = "unverified_webhook";
 	public static final String ERROR_ACCOUNTS_ALREADY_CREATED = "accounts_already_created";
 	public static final String ERROR_INSUFFICIENT_FUNDS = "insufficient_funds";
+	public static final String ERROR_INSUFFICIENT_POOL_FUNDS = "insufficient_pool_funds";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
@@ -111,6 +112,12 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
 	}
+
+	@ExceptionHandler(InsufficientPoolFundsException.class)
+	public ResponseEntity<ErrorResponse> handleInsufficientPoolFundsException(InsufficientPoolFundsException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_INSUFFICIENT_POOL_FUNDS, ex.getMessage()));
+	}
 	
 	@ExceptionHandler(SelfTransferException.class)
 	public ResponseEntity<ErrorResponse> handleSelfTransferException(SelfTransferException ex) {
@@ -156,12 +163,6 @@ public class GlobalExceptionHandler {
 	
 	@ExceptionHandler(InsufficientCollateralException.class)
 	public ResponseEntity<ErrorResponse> handleInsufficientCollateralException(InsufficientCollateralException ex) {
-		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
-	}
-	
-	@ExceptionHandler(ExcesiveEquivalentAmountException.class)
-	public ResponseEntity<ErrorResponse> handleExcesiveEquivalentAmountException(ExcesiveEquivalentAmountException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(new ErrorResponse(ERROR_INSUFFICIENT_FUNDS, ex.getMessage()));
 	}

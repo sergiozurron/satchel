@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
-import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
+import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.LoanNotFoundException;
@@ -65,7 +65,7 @@ public class LoanService {
 				.getConversionRate(collateralAssetId, loanAssetId).multiply(ltvCollateral);
 		BigDecimal omnibusBalance = assetCustodianService.getPoolSize(loanAssetId);
 		if (omnibusBalance.compareTo(loanAmount) < 0) {
-			throw new ExcesiveEquivalentAmountException(omnibusBalance);
+			throw new InsufficientPoolFundsException();
 		}
 		// Lock collateral in the collateral wallet
 		collateralWallet.lockBalance(collateralAmount);

@@ -28,6 +28,7 @@ import com.jejo.satchel.dto.TransactionDetails;
 import com.jejo.satchel.dto.WithdrawalRequest;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
@@ -238,13 +239,13 @@ public class AccountServiceTest {
 	}
 
 	@Test
-	void initiateWithdrawal_throwsInsufficientFunds_whenPoolIsBelowAmount() {
+	void initiateWithdrawal_throwsInsufficientPoolFunds_whenPoolIsBelowAmount() {
 		DepositWallet source = stubSourceWallet(new BigDecimal("100"), BigDecimal.ZERO);
 		when(depositWalletRepository.findByAddressAndAssetId("0xexternal", ASSET_ID)).thenReturn(Optional.empty());
 		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(new BigDecimal("24.99"));
 
 		assertThatThrownBy(() -> accountService.initiateWithdrawal(withdrawalRequest("0xexternal", new BigDecimal("25"))))
-				.isInstanceOf(InsufficientFundsException.class);
+				.isInstanceOf(InsufficientPoolFundsException.class);
 
 		assertThat(source.getBalance()).isEqualByComparingTo("100");
 		verify(assetCustodianService).getPoolSize(ASSET_ID);

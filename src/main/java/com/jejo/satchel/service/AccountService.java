@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.InsufficientFundsException;
+import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.FundsTransfer;
@@ -132,7 +133,7 @@ public class AccountService {
 					// Transfer to external account
 					BigDecimal poolSize = assetCustodianService.getPoolSize(assetId);
 					if (poolSize.compareTo(withdrawalRequest.getAmount()) < 0) {
-						throw new InsufficientFundsException();
+						throw new InsufficientPoolFundsException();
 					}
 					String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
 							userId, withdrawalRequest.getDestinationAddress());

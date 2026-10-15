@@ -27,7 +27,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
-import com.jejo.satchel.exception.ExcesiveEquivalentAmountException;
+import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
@@ -155,7 +155,7 @@ class LoanServiceTest {
 	}
 
 	@Test
-	void processLoanRequest_omnibusBalanceInsufficient_throwsExcesiveEquivalentAmount() {
+	void processLoanRequest_omnibusBalanceInsufficient_throwsInsufficientPoolFunds() {
 		BigDecimal collateralAmount = BigDecimal.valueOf(2);
 		BigDecimal ltv = BigDecimal.valueOf(0.5);
 		BigDecimal loanAmount = BigDecimal.valueOf(4000);
@@ -174,7 +174,7 @@ class LoanServiceTest {
 				.thenReturn(loanAmount);
 		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID)).thenReturn(omnibusBalance);
 
-		ExcesiveEquivalentAmountException ex = assertThrows(ExcesiveEquivalentAmountException.class,
+		InsufficientPoolFundsException ex = assertThrows(InsufficientPoolFundsException.class,
 				() -> loanService.processLoanRequest(loanRequest));
 
 		assertThat(ex).isNotNull();

@@ -320,8 +320,8 @@ public class FundsTransferControllerIntTest {
 		postWithdrawal(request, true)
 				.andExpect(status().isBadRequest())
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
-				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INSUFFICIENT_FUNDS))
-				.andExpect(jsonPath("$.message").value("Insufficient funds in account"));
+				.andExpect(jsonPath("$.error").value(GlobalExceptionHandler.ERROR_INSUFFICIENT_POOL_FUNDS))
+				.andExpect(jsonPath("$.message").value("Insufficient funds in the pool"));
 
 		assertThat(reload(source).getBalance()).isEqualByComparingTo("100");
 		assertThat(fundsTransferRepository.count()).isEqualTo(transfersBefore);
