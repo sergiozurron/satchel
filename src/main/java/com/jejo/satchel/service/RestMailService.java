@@ -14,7 +14,7 @@ public class RestMailService implements MailService {
 
 	@Value("${mailtrap.api.token}")
 	private String EMAIL_API_TOKEN;
-	@Value("${satchel.email.verification-url}")
+	@Value("${satchel.url}")
 	private String VERIFICATION_URL;
 	
 	@Async

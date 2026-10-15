@@ -17,7 +17,7 @@ public class MailtrapMailService implements MailService {
 
 	@Value("${satchel.email.sender}")
 	private String SENDER_EMAIL;
-	@Value("${satchel.email.verification-url}")
+	@Value("${satchel.url}")
 	private String VERIFICATION_URL;
 	@Value("${mailtrap.api.token}")
 	private String TOKEN;
