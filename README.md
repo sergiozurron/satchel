@@ -134,7 +134,9 @@ The API starts on `http://localhost:8080` by default.
 
 ### Database
 
-By default the application uses `spring.jpa.hibernate.ddl-auto=create` (convenient for development). Switch to `validate` or `none` for production and manage schema with Flyway/Liquibase.
+Schema changes belong in `src/main/resources/db/migration` as a new versioned Flyway script (`V2__...`, `V3__...`). The app applies pending scripts at startup. Hibernate uses `spring.jpa.hibernate.ddl-auto=validate` and does not create or alter tables.
+
+`V1__baseline.sql` creates the current tables on an empty database. A database that already has tables and no Flyway history is baselined at version 1, so that script is not run again and existing rows stay in place.
 
 ## Supported Testnet Assets
 
