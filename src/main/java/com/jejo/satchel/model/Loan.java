@@ -6,8 +6,6 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -39,12 +37,13 @@ public class Loan {
 	@Column(nullable = false)
 	private String collateralAssetId; // Collateral asset ID
 	@Column(nullable = false, precision = 38, scale = 7)
-	private BigDecimal collateralAmount; // Collateral amount
+	private BigDecimal collateralAmount; // Collateral amount locked at origination
+	@Column(nullable = false, precision = 38, scale = 7)
+	private BigDecimal currentCollateral; // Collateral remaining after liquidations
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
-	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 255)
-	private LoanStatus status;
+	@Column(nullable = false)
+	private boolean isPaid;
 	@Column(nullable = false)
 	private BigDecimal accruedInterest; // Accrued interest
 	@Column(nullable = false)
@@ -63,6 +62,13 @@ public class Loan {
 	
 	public void returnAmount(BigDecimal amount) {
 		this.returnedAmount = this.returnedAmount.add(amount);
+	}
+	
+	public void liquidate(BigDecimal collateralSold, BigDecimal proceeds) {
+		currentCollateral = currentCollateral.subtract(collateralSold);
+		returnAmount(proceeds);
+		if (isPaidOut())
+			this.isPaid = true;
 	}
 	
 	public boolean isPaidOut() {

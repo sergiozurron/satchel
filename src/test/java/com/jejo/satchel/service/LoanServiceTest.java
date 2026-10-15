@@ -19,6 +19,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,7 +34,6 @@ import com.jejo.satchel.exception.LoanNotActiveException;
 import com.jejo.satchel.exception.LoanNotFoundException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
-import com.jejo.satchel.model.LoanStatus;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.LoanRepository;
@@ -114,6 +114,10 @@ class LoanServiceTest {
 
 		assertThat(result).isSameAs(savedLoan);
 		verify(depositWalletRepository, times(2)).save(any());
+		ArgumentCaptor<Loan> loanCaptor = ArgumentCaptor.forClass(Loan.class);
+		verify(loanRepository).save(loanCaptor.capture());
+		assertThat(loanCaptor.getValue().getCurrentCollateral()).isEqualByComparingTo(collateralAmount);
+		assertThat(loanCaptor.getValue().isPaid()).isFalse();
 	}
 
 	@Test
@@ -228,7 +232,8 @@ class LoanServiceTest {
 		return Loan.builder().id(1L).loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.currentCollateral(new BigDecimal("0.5000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(false)
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(user).build();
 	}
@@ -273,7 +278,7 @@ class LoanServiceTest {
 		// Then
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("405.0000000"));
-		assertThat(result.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(result.isPaid()).isFalse();
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 
@@ -302,7 +307,7 @@ class LoanServiceTest {
 
 		// Then — requested 600 is capped at the 505 outstanding
 		assertThat(result.getReturnedAmount()).isEqualTo(new BigDecimal("505.0000000"));
-		assertThat(result.getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(result.isPaid()).isTrue();
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("495");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 
@@ -329,25 +334,10 @@ class LoanServiceTest {
 		// Given
 		User user = createTestUser();
 		Loan paidLoan = createActiveLoan(user);
-		paidLoan.setStatus(LoanStatus.PAID);
+		paidLoan.setPaid(true);
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(paidLoan));
-
-		// When & Then
-		assertThatThrownBy(() -> loanService.repayLoan(1L, new BigDecimal("100.0000000")))
-				.isInstanceOf(LoanNotActiveException.class);
-	}
-
-	@Test
-	void repayLoan_shouldThrowLoanNotActiveException_whenLoanIsLiquidated() {
-		// Given
-		User user = createTestUser();
-		Loan liquidatedLoan = createActiveLoan(user);
-		liquidatedLoan.setStatus(LoanStatus.LIQUIDATED);
-
-		when(currentUserProvider.getCurrentUser()).thenReturn(user);
-		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(liquidatedLoan));
 
 		// When & Then
 		assertThatThrownBy(() -> loanService.repayLoan(1L, new BigDecimal("100.0000000")))
@@ -370,7 +360,7 @@ class LoanServiceTest {
 				.isInstanceOf(NoSuchElementException.class);
 
 		assertThat(activeLoan.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(activeLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(activeLoan.isPaid()).isFalse();
 		verify(depositWalletRepository, never()).findByUserIdAndAssetId(1L, "ETH");
 	}
 
@@ -393,7 +383,7 @@ class LoanServiceTest {
 				.isInstanceOf(NoSuchElementException.class);
 
 		assertThat(activeLoan.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(activeLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(activeLoan.isPaid()).isFalse();
 	}
 
 	@Test
@@ -501,7 +491,7 @@ class LoanServiceTest {
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
 
 		// Then
-		assertThat(result.getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(result.isPaid()).isTrue();
 		assertThat(result.getOutstandingAmount()).isEqualByComparingTo("0");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 	}
@@ -526,7 +516,7 @@ class LoanServiceTest {
 		assertThat(resultAfterFirst.getReturnedAmount()).isEqualTo(firstRepayment);
 		assertThat(resultAfterFirst.getOutstandingAmount())
 				.isEqualTo(new BigDecimal("405.0000000"));
-		assertThat(resultAfterFirst.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(resultAfterFirst.isPaid()).isFalse();
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 
@@ -565,7 +555,7 @@ class LoanServiceTest {
 		// Then — a tiny repayment still unlocks the entire collateral
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("504.9999000"));
-		assertThat(result.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(result.isPaid()).isFalse();
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("999.9999");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 	}
@@ -603,14 +593,14 @@ class LoanServiceTest {
 		Loan newer = Loan.builder().id(2L).loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.interestRate(new BigDecimal("0.050000")).isPaid(false)
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(newerGrantedAt).user(user)
 				.build();
 
 		Loan older = Loan.builder().id(1L).loanAssetId("ETH_TEST5").collateralAssetId("AVAXTEST")
 				.returnedAmount(new BigDecimal("10.0000000")).amount(new BigDecimal("100.0000000"))
 				.collateralAmount(new BigDecimal("1.0000000"))
-				.interestRate(new BigDecimal("0.080000")).status(LoanStatus.PAID)
+				.interestRate(new BigDecimal("0.080000")).isPaid(true)
 				.accruedInterest(new BigDecimal("1.0000000")).grantedAt(olderGrantedAt).user(user)
 				.build();
 
@@ -654,14 +644,14 @@ class LoanServiceTest {
 	void getUserLoan_shouldReturnTheCurrentUsersLoan() {
 		Loan paidLoan = createActiveLoan(currentUser);
 		paidLoan.setId(7L);
-		paidLoan.setStatus(LoanStatus.PAID);
+		paidLoan.setPaid(true);
 
 		when(loanRepository.findByIdAndUserId(7L, USER_ID)).thenReturn(Optional.of(paidLoan));
 
 		Loan result = loanService.getUserLoan(7L);
 
 		assertThat(result).isSameAs(paidLoan);
-		assertThat(result.getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(result.isPaid()).isTrue();
 		verify(loanRepository).findByIdAndUserId(7L, USER_ID);
 	}
 

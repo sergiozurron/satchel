@@ -33,7 +33,6 @@ import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.model.AuthToken;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
-import com.jejo.satchel.model.LoanStatus;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.AuthTokenRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
@@ -110,7 +109,8 @@ public class LoanControllerIntTest {
 		activeLoan = Loan.builder().loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.currentCollateral(new BigDecimal("0.5000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(false)
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(testUser).build();
 		activeLoan = loanRepository.save(activeLoan);
@@ -136,8 +136,9 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(405.0)))
 				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH")))
 				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$.currentCollateral", Matchers.equalTo(0.5)))
 				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.0)))
 				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
 				.andExpect(jsonPath("$.user").doesNotExist())
@@ -167,7 +168,7 @@ public class LoanControllerIntTest {
 				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(505.0)))
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(0.0)))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("PAID")));
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(true)));
 
 		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
@@ -176,7 +177,7 @@ public class LoanControllerIntTest {
 		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
 		assertThat(updatedLoanWallet.getBalance()).isEqualByComparingTo("495");
 		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0");
-		assertThat(updatedLoan.getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(updatedLoan.isPaid()).isTrue();
 		assertThat(updatedLoan.getReturnedAmount()).isEqualByComparingTo("505");
 	}
 
@@ -225,7 +226,8 @@ public class LoanControllerIntTest {
 		Loan paidLoan = Loan.builder().loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(new BigDecimal("500.0000000")).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
+				.currentCollateral(new BigDecimal("0.5000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(true)
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(LocalDateTime.now())
 				.user(testUser).build();
 		paidLoan = loanRepository.save(paidLoan);
@@ -335,7 +337,7 @@ public class LoanControllerIntTest {
 		// Then - Verify loan's returned amount was updated and collateral was unlocked
 		Loan updatedLoan = loanRepository.findById(activeLoan.getId()).orElseThrow();
 		assertThat(updatedLoan.getReturnedAmount()).isEqualTo(repaymentAmount);
-		assertThat(updatedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(updatedLoan.isPaid()).isFalse();
 		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
 		DepositWallet updatedCollateral = depositWalletRepository.findById(collateralWallet.getId())
@@ -367,7 +369,7 @@ public class LoanControllerIntTest {
 				.content(objectMapper.writeValueAsString(secondRequest))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(300.0)))
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(205.0)))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")));
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(false)));
 
 		DepositWallet updatedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
@@ -395,7 +397,7 @@ public class LoanControllerIntTest {
 		DepositWallet unchangedCollateral = depositWalletRepository.findById(collateralWallet.getId())
 				.orElseThrow();
 		assertThat(unchangedLoan.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(unchangedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(unchangedLoan.isPaid()).isFalse();
 		assertThat(unchangedCollateral.getLockedBalance()).isEqualByComparingTo("0.5");
 	}
 
@@ -416,7 +418,7 @@ public class LoanControllerIntTest {
 		DepositWallet unchangedLoanWallet = depositWalletRepository.findById(depositWallet.getId())
 				.orElseThrow();
 		assertThat(unchangedLoan.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(unchangedLoan.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(unchangedLoan.isPaid()).isFalse();
 		assertThat(unchangedLoanWallet.getBalance()).isEqualByComparingTo("1000");
 	}
 
@@ -434,8 +436,9 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$[0].outstandingAmount", Matchers.equalTo(505.0)))
 				.andExpect(jsonPath("$[0].collateralAssetId", Matchers.equalTo("ETH")))
 				.andExpect(jsonPath("$[0].collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$[0].currentCollateral", Matchers.equalTo(0.5)))
 				.andExpect(jsonPath("$[0].interestRate", Matchers.equalTo(0.05)))
-				.andExpect(jsonPath("$[0].status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$[0].isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$[0].accruedInterest", Matchers.equalTo(5.0)))
 				.andExpect(jsonPath("$[0].grantedAt", Matchers.notNullValue()))
 				.andExpect(jsonPath("$[0].user").doesNotExist())
@@ -454,7 +457,8 @@ public class LoanControllerIntTest {
 		Loan otherLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
 				.collateralAssetId("ETH").returnedAmount(BigDecimal.ZERO)
 				.amount(new BigDecimal("20.0000000")).collateralAmount(new BigDecimal("0.1000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.currentCollateral(new BigDecimal("0.1000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(false)
 				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(otherUser)
 				.build());
 
@@ -467,11 +471,12 @@ public class LoanControllerIntTest {
 	}
 
 	@Test
-	void getAllUserLoans_shouldReturnEveryStatusNewestFirst() throws Exception {
+	void getAllUserLoans_shouldReturnPaidAndUnpaidNewestFirst() throws Exception {
 		Loan paidLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
 				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
 				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
+				.currentCollateral(new BigDecimal("0.2000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(true)
 				.accruedInterest(BigDecimal.ZERO).grantedAt(activeLoan.getGrantedAt().minusDays(2))
 				.user(testUser).build());
 
@@ -479,9 +484,9 @@ public class LoanControllerIntTest {
 				get("/api/v1/loans").header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk()).andExpect(jsonPath("$", Matchers.hasSize(2)))
 				.andExpect(jsonPath("$[0].id", Matchers.equalTo(activeLoan.getId().intValue())))
-				.andExpect(jsonPath("$[0].status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$[0].isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$[1].id", Matchers.equalTo(paidLoan.getId().intValue())))
-				.andExpect(jsonPath("$[1].status", Matchers.equalTo("PAID")));
+				.andExpect(jsonPath("$[1].isPaid", Matchers.equalTo(true)));
 	}
 
 	@Test
@@ -518,8 +523,9 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(505.0)))
 				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH")))
 				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(0.5)))
+				.andExpect(jsonPath("$.currentCollateral", Matchers.equalTo(0.5)))
 				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(5.0)))
 				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
 				.andExpect(jsonPath("$.user").doesNotExist())
@@ -531,7 +537,8 @@ public class LoanControllerIntTest {
 		Loan paidLoan = loanRepository.save(Loan.builder().loanAssetId("USDC")
 				.collateralAssetId("ETH").returnedAmount(new BigDecimal("100.0000000"))
 				.amount(new BigDecimal("100.0000000")).collateralAmount(new BigDecimal("0.2000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.PAID)
+				.currentCollateral(new BigDecimal("0.2000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(true)
 				.accruedInterest(BigDecimal.ZERO).grantedAt(LocalDateTime.now()).user(testUser)
 				.build());
 
@@ -539,7 +546,7 @@ public class LoanControllerIntTest {
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.id", Matchers.equalTo(paidLoan.getId().intValue())))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("PAID")));
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(true)));
 	}
 
 	@Test
@@ -603,8 +610,9 @@ public class LoanControllerIntTest {
 				.andExpect(jsonPath("$.outstandingAmount", Matchers.equalTo(8.0)))
 				.andExpect(jsonPath("$.collateralAssetId", Matchers.equalTo("ETH_TEST5")))
 				.andExpect(jsonPath("$.collateralAmount", Matchers.equalTo(1)))
+				.andExpect(jsonPath("$.currentCollateral", Matchers.equalTo(1)))
 				.andExpect(jsonPath("$.interestRate", Matchers.equalTo(0.05)))
-				.andExpect(jsonPath("$.status", Matchers.equalTo("ACTIVE")))
+				.andExpect(jsonPath("$.isPaid", Matchers.equalTo(false)))
 				.andExpect(jsonPath("$.accruedInterest", Matchers.equalTo(0)))
 				.andExpect(jsonPath("$.grantedAt", Matchers.notNullValue()))
 				.andExpect(jsonPath("$.user").doesNotExist())
@@ -620,8 +628,9 @@ public class LoanControllerIntTest {
 		assertThat(saved.getAmount()).isEqualByComparingTo("8");
 		assertThat(saved.getReturnedAmount()).isEqualByComparingTo("0");
 		assertThat(saved.getCollateralAmount()).isEqualByComparingTo("1");
+		assertThat(saved.getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(saved.getAccruedInterest()).isEqualByComparingTo("0");
-		assertThat(saved.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(saved.isPaid()).isFalse();
 		assertThat(saved.getInterestRate()).isEqualByComparingTo("0.05");
 	}
 

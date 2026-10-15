@@ -43,4 +43,9 @@ public class CoingeckoConversionRateService implements ConversionRateService {
 		return rate;
 	}
 
+	@Override
+	public BigDecimal sell(String fromAsset, String toAsset, BigDecimal amount) {
+		return getConversionRate(fromAsset, toAsset).multiply(amount);
+	}
+
 }

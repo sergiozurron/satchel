@@ -11,7 +11,6 @@ import org.mapstruct.factory.Mappers;
 
 import com.jejo.satchel.dto.LoanResponse;
 import com.jejo.satchel.model.Loan;
-import com.jejo.satchel.model.LoanStatus;
 import com.jejo.satchel.model.User;
 
 class LoanMapperTest {
@@ -27,14 +26,16 @@ class LoanMapperTest {
 		Loan newer = Loan.builder().id(2L).loanAssetId("USDC").collateralAssetId("ETH")
 				.returnedAmount(BigDecimal.ZERO).amount(new BigDecimal("500.0000000"))
 				.collateralAmount(new BigDecimal("0.5000000"))
-				.interestRate(new BigDecimal("0.050000")).status(LoanStatus.ACTIVE)
+				.currentCollateral(new BigDecimal("0.4000000"))
+				.interestRate(new BigDecimal("0.050000")).isPaid(false)
 				.accruedInterest(new BigDecimal("5.0000000")).grantedAt(newerGrantedAt).user(user)
 				.build();
 
 		Loan older = Loan.builder().id(1L).loanAssetId("ETH_TEST5").collateralAssetId("AVAXTEST")
 				.returnedAmount(new BigDecimal("10.0000000")).amount(new BigDecimal("100.0000000"))
 				.collateralAmount(new BigDecimal("1.0000000"))
-				.interestRate(new BigDecimal("0.080000")).status(LoanStatus.PAID)
+				.currentCollateral(new BigDecimal("1.0000000"))
+				.interestRate(new BigDecimal("0.080000")).isPaid(true)
 				.accruedInterest(new BigDecimal("1.0000000")).grantedAt(olderGrantedAt).user(user)
 				.build();
 
@@ -49,13 +50,15 @@ class LoanMapperTest {
 		assertThat(first.getOutstandingAmount()).isEqualByComparingTo("505");
 		assertThat(first.getCollateralAssetId()).isEqualTo("ETH");
 		assertThat(first.getCollateralAmount()).isEqualByComparingTo("0.5");
+		assertThat(first.getCurrentCollateral()).isEqualByComparingTo("0.4");
 		assertThat(first.getInterestRate()).isEqualByComparingTo("0.05");
-		assertThat(first.getStatus()).isEqualTo(LoanStatus.ACTIVE);
+		assertThat(first.isPaid()).isFalse();
 		assertThat(first.getAccruedInterest()).isEqualByComparingTo("5");
 		assertThat(first.getGrantedAt()).isEqualTo(newerGrantedAt);
 
 		assertThat(result.get(1).getId()).isEqualTo(1L);
-		assertThat(result.get(1).getStatus()).isEqualTo(LoanStatus.PAID);
+		assertThat(result.get(1).isPaid()).isTrue();
+		assertThat(result.get(1).getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(result.get(1).getOutstandingAmount()).isEqualByComparingTo("91");
 	}
 

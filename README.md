@@ -9,7 +9,7 @@ Satchel is the backend API for a personal crypto banking platform. Users deposit
 ### Lending & Borrowing
 - **Depositors** send any supported asset and earn interest on that asset.
 - **Borrowers** lock a supported asset as collateral and receive a loan in a supported asset.
-- Interest rates, loan-to-value (LTV), the platform’s share of deposit interest (fin margin), and sweep minimums are configured per asset.
+- Interest rates, origination LTV, liquidation LTV, the platform’s share of deposit interest (fin margin), and sweep minimums are configured per asset.
 - Loans are purely ledger-based (no on-chain loan contracts). Granting or repaying a loan only updates the internal ledger.
 
 ### Treasury & Custody Model
@@ -20,13 +20,16 @@ Periodically, deposits are **swept** from user vaults into a single **omnibus va
 Withdrawals of any supported asset are paid directly from the omnibus vault to the user’s external wallet, with a corresponding debit on the internal ledger.
 
 ### Loan-to-Value
-When a loan is opened, the platform sizes it from the collateral asset’s configured LTV: `ltv × collateral amount`, converted into the borrowed asset at the current price. LTV comes from configuration for that collateral asset. It applies at origination.
+When a loan is opened, the platform sizes it from the collateral asset’s configured LTV: `ltv × collateral amount`, converted into the borrowed asset at the current price. LTV comes from configuration for that collateral asset.
+
+The same schedule checks unpaid loans. Current LTV is outstanding debt divided by the value of `currentCollateral`. If that ratio is above the collateral asset’s `liquidation-ltv`, the platform sells enough remaining collateral to bring LTV back to the origination LTV. The sale is a mock price conversion and does not move vault balances. `collateralAmount` stays the amount locked at origination. `currentCollateral` is what remains. `isPaid` becomes true only when outstanding debt hits zero.
 
 ### Automated Background Tasks
-The platform accrues interest on deposits and outstanding loans on `satchel.financial.accrual-period`:
+The platform accrues interest and checks loan LTV on `satchel.financial.accrual-period`:
 
 - Deposit interest for an asset is that asset’s annual rate multiplied by `(1 − fin margin)`.
-- Loan interest uses the borrowed asset’s annual rate.
+- Loan interest uses the borrowed asset’s annual rate and accrues while `isPaid` is false.
+- An unpaid loan above its collateral asset’s liquidation LTV has part of `currentCollateral` sold, on paper, back to the origination LTV.
 
 ### Deposit Handling
 Crypto deposits are processed via **Fireblocks** webhooks (`transaction.created`, `transaction.updated`, `vault_account.asset.balance_updated`).
@@ -95,6 +98,7 @@ satchel.financial.accrual-period=60000
 satchel.financial.assets.supported=ETH_TEST5,USDC_ETH_TEST5_AN74,AVAXTEST,ETH-AETH_SEPOLIA,AMOY_POLYGON_TEST,BNB_TEST
 satchel.financial.assets.interest-rate={'ETH_TEST5':0.05,'USDC_ETH_TEST5_AN74':0.05,'AVAXTEST':0.05,'ETH-AETH_SEPOLIA':0.05,'AMOY_POLYGON_TEST':0.05,'BNB_TEST':0.05}
 satchel.financial.assets.ltv={'ETH_TEST5':0.8,'USDC_ETH_TEST5_AN74':0.8,'AVAXTEST':0.8,'ETH-AETH_SEPOLIA':0.8,'AMOY_POLYGON_TEST':0.8,'BNB_TEST':0.8}
+satchel.financial.assets.liquidation-ltv={'ETH_TEST5':0.85,'USDC_ETH_TEST5_AN74':0.95,'AVAXTEST':0.83,'ETH-AETH_SEPOLIA':0.85,'AMOY_POLYGON_TEST':0.88,'BNB_TEST':0.86}
 satchel.financial.assets.fin-margin={'ETH_TEST5':0.1,'USDC_ETH_TEST5_AN74':0.1,'AVAXTEST':0.1,'ETH-AETH_SEPOLIA':0.1,'AMOY_POLYGON_TEST':0.1,'BNB_TEST':0.1}
 satchel.financial.assets.deposit-sweep-minimum={'ETH_TEST5':0.01,'USDC_ETH_TEST5_AN74':0.01,'AVAXTEST':0.01,'ETH-AETH_SEPOLIA':0.01,'AMOY_POLYGON_TEST':0.01,'BNB_TEST':0.01}
 satchel.financial.assets.base-asset={'ETH_TEST5':'ETH_TEST5','USDC_ETH_TEST5_AN74':'ETH_TEST5','AVAXTEST':'AVAXTEST','ETH-AETH_SEPOLIA':'ETH-AETH_SEPOLIA','AMOY_POLYGON_TEST':'AMOY_POLYGON_TEST','BNB_TEST':'BNB_TEST'}
@@ -308,7 +312,7 @@ On success the platform:
 - Locks the specified collateral on the ledger.
 - Credits the calculated loan amount to your deposit wallet for the loan asset.
 - Records an active `Loan`.
-- Returns the created loan, in the same shape as a repayment response (id, assets, amounts, outstanding amount, interest rate, status, accrued interest, and granted time).
+- Returns the created loan, in the same shape as a repayment response (id, assets, amounts, outstanding amount, original and remaining collateral, interest rate, `isPaid`, accrued interest, and granted time).
 
 No on-chain loan contract is created; everything is ledger-driven.
 
@@ -332,7 +336,7 @@ curl -X PUT http://localhost:8080/api/v1/loans/42 \
   }'
 ```
 
-The response is the updated loan, including the remaining outstanding amount and the new status (`ACTIVE` or `PAID`). Repayment is debited from your deposit wallet for the loan’s asset.
+The response is the updated loan, including the remaining outstanding amount and `isPaid`. `isPaid` is true only when outstanding debt is zero. Repayment is debited from your deposit wallet for the loan’s asset. A loan that is already paid is rejected.
 
 ## API Overview
 

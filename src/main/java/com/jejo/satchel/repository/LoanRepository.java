@@ -1,18 +1,17 @@
 package com.jejo.satchel.repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.jejo.satchel.model.Loan;
-import com.jejo.satchel.model.LoanStatus;
 
 public interface LoanRepository extends JpaRepository<Loan, Long> {
-	public List<Loan> findAllByStatus(LoanStatus status);
+	@Query("select loan from Loan loan where loan.isPaid = :isPaid")
+	public List<Loan> findAllByIsPaid(@Param("isPaid") boolean isPaid);
 	public List<Loan> findAllByUserIdOrderByGrantedAtDesc(Long userId);
-	public List<Loan> findAllByUserIdAndStatusOrderByInterestRateDesc(Long userId, LoanStatus status);
-	public List<Loan> findAllByGrantedAtAndStatus(LocalDateTime grantedAt, LoanStatus status);
 	public Optional<Loan> findByIdAndUserId(Long loanId, Long userId);
 }
