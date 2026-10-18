@@ -345,6 +345,7 @@ The response is the updated loan, including the remaining outstanding amount and
 
 | Method | Endpoint                              | Description                          | Auth required |
 |--------|---------------------------------------|--------------------------------------|---------------|
+| GET    | `/api/v1`                             | API home                             | No            |
 | POST   | `/api/v1/auth/signup`                 | Register a new user                  | No            |
 | GET    | `/api/v1/auth/email-verification`     | Verify email with token              | No            |
 | POST   | `/api/v1/auth/login`                  | Obtain JWT                           | No            |

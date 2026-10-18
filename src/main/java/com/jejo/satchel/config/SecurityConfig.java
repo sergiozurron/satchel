@@ -32,6 +32,7 @@ public class SecurityConfig {
 		http.authorizeHttpRequests(authorize -> authorize
 				.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 				.requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
+				.requestMatchers(HttpMethod.GET, "/api/v1").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/v1/funds_transfer").permitAll()
 				.anyRequest().authenticated())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
