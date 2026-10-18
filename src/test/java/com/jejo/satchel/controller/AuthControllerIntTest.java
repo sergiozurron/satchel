@@ -2,16 +2,20 @@ package com.jejo.satchel.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -58,6 +62,8 @@ public class AuthControllerIntTest {
 	private AssetCustodianService assetCustodianService;
 	@MockitoBean
 	private MailService mailService;
+	@Value("${satchel.auth.verification-email-resend-interval}")
+	private long verificationEmailResendIntervalMs;
 
 	@BeforeEach
 	void setup() {
@@ -114,6 +120,43 @@ public class AuthControllerIntTest {
 		mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(signupRequest))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Signup successful. Please check your email for verification."));
+		verify(mailService).sendActivationEmail(any(), any(), any());
+	}
+
+	@Test
+	void signup_shouldReturnOkAndNotResend_whenLastEmailIsInsideInterval() throws Exception {
+		emailVerificationTokenRepository.save(EmailVerificationToken.builder().token("recent-token")
+				.expiresAt(LocalDateTime.now().plusHours(24)).createdAt(LocalDateTime.now())
+				.user(User.builder().firstName("Juan").lastName("Doe").email("email@email.com")
+						.password("password123").verified(false).build())
+				.build());
+		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
+				.email("email@email.com").build();
+
+		mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(signupRequest))).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Signup successful. Please check your email for verification."));
+
+		verify(mailService, never()).sendActivationEmail(any(), any(), any());
+	}
+
+	@Test
+	void signup_shouldReturnOkAndResend_whenResendIntervalHasElapsed() throws Exception {
+		doNothing().when(mailService).sendActivationEmail(any(), any(), any());
+		emailVerificationTokenRepository.save(EmailVerificationToken.builder().token("old-token")
+				.expiresAt(LocalDateTime.now().plusHours(24))
+				.createdAt(LocalDateTime.now().minus(Duration.ofMillis(verificationEmailResendIntervalMs)).minusSeconds(1))
+				.user(User.builder().firstName("Juan").lastName("Doe").email("email@email.com")
+						.password("password123").verified(false).build())
+				.build());
+		SignupRequest signupRequest = SignupRequest.builder().firstName("John").lastName("Doe").password("password123")
+				.email("email@email.com").build();
+
+		mockMvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(signupRequest))).andExpect(status().isOk())
+				.andExpect(jsonPath("$.message").value("Signup successful. Please check your email for verification."));
+
+		verify(mailService).sendActivationEmail(any(), any(), any());
 	}
 
 	@Test

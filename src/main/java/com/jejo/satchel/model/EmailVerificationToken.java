@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +34,8 @@ public class EmailVerificationToken implements Serializable {
 	@Column(nullable = false, unique = true)
 	private String token;
 	@Column(nullable = false)
+	private LocalDateTime createdAt;
+	@Column(nullable = false)
 	private LocalDateTime expiresAt;
 	@Builder.Default
 	@Column(nullable = false)
@@ -43,6 +46,13 @@ public class EmailVerificationToken implements Serializable {
 
 	public boolean isExpired() {
 		return LocalDateTime.now().isAfter(expiresAt);
+	}
+
+	@PrePersist
+	private void assignCreatedAt() {
+		if (createdAt == null) {
+			createdAt = LocalDateTime.now();
+		}
 	}
 	
 }

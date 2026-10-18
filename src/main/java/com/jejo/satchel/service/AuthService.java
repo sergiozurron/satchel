@@ -1,9 +1,11 @@
 package com.jejo.satchel.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,6 +40,8 @@ public class AuthService {
 	private final AuthTokenRepository authTokenRepository;
 	private final JwtUtil jwtUtil;
 	private final AuthMapper authMapper = AuthMapper.INSTANCE;
+	@Value("${satchel.auth.verification-email-resend-interval}")
+	private long verificationEmailResendIntervalMs;
 
 	public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder,
 			EmailVerificationTokenRepository emailVerificationTokenRepository,
@@ -56,10 +60,13 @@ public class AuthService {
 	public void signup(SignupRequest signupRequest) {
 		Optional<User> userOpt = userRepository.findByEmail(signupRequest.getEmail());
 		if (userOpt.isPresent()) {
-			if (userOpt.get().isVerified()) {
+			User user = userOpt.get();
+			if (user.isVerified()) {
 				throw new EmailTakenException(signupRequest.getEmail());
 			}
-			sendVerificationEmail(userOpt.get());
+			if (canResendVerificationEmail(user)) {
+				sendVerificationEmail(user);
+			}
 		} else {
 			User user = authMapper.toUserEntity(signupRequest);
 			user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -103,6 +110,13 @@ public class AuthService {
 		return generateAuthorizationToken(user);
 	}
 
+	private boolean canResendVerificationEmail(User user) {
+		return emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(user)
+				.map(token -> !LocalDateTime.now().isBefore(
+						token.getCreatedAt().plus(Duration.ofMillis(verificationEmailResendIntervalMs))))
+				.orElse(true);
+	}
+
 	private void sendVerificationEmail(User user) {
 		String token = generateEmailVerificationToken(user);
 		mailService.sendActivationEmail(user.getFirstName(), user.getEmail(), token);
@@ -110,9 +124,10 @@ public class AuthService {
 
 	private String generateEmailVerificationToken(User user) {
 		String token = UUID.randomUUID().toString();
+		LocalDateTime sentAt = LocalDateTime.now();
 		// Expires in 24 hours
 		EmailVerificationToken verificationToken = EmailVerificationToken.builder().token(token)
-				.user(user).expiresAt(LocalDateTime.now().plusHours(24)).build();
+				.user(user).createdAt(sentAt).expiresAt(sentAt.plusHours(24)).build();
 		emailVerificationTokenRepository.save(verificationToken);
 		return token;
 	}

@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -16,6 +18,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jejo.satchel.dto.SignupRequest;
 import com.jejo.satchel.exception.EmailTakenException;
@@ -92,6 +95,8 @@ public class AuthServiceTest {
 		User existingUser = User.builder().firstName("firstName").lastName("lastName").email("email")
 				.password("encodedPassword").verified(false).build();
 		when(userRepository.findByEmail("email")).thenReturn(Optional.of(existingUser));
+		when(emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(existingUser))
+				.thenReturn(Optional.empty());
 
 		doNothing().when(mailService).sendActivationEmail(eq("firstName"), eq("email"), any(String.class));
 
@@ -99,6 +104,42 @@ public class AuthServiceTest {
 		authService.signup(signupRequest);
 
 		// Then
+		verify(mailService).sendActivationEmail(eq("firstName"), eq("email"), any(String.class));
+	}
+
+	@Test
+	void signup_ShouldNotSendVerificationEmail_WhenLastEmailIsInsideInterval() {
+		SignupRequest signupRequest = SignupRequest.builder().email("email").password("password").firstName("firstName")
+				.lastName("lastName").build();
+		User existingUser = User.builder().firstName("firstName").lastName("lastName").email("email")
+				.password("encodedPassword").verified(false).build();
+		when(userRepository.findByEmail("email")).thenReturn(Optional.of(existingUser));
+		when(emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(existingUser))
+				.thenReturn(Optional.of(EmailVerificationToken.builder().createdAt(LocalDateTime.now()).build()));
+		ReflectionTestUtils.setField(authService, "verificationEmailResendIntervalMs", 60_000L);
+
+		authService.signup(signupRequest);
+
+		verify(mailService, never()).sendActivationEmail(any(), any(), any());
+		verify(emailVerificationTokenRepository, never()).save(any());
+	}
+
+	@Test
+	void signup_ShouldSendVerificationEmail_WhenResendIntervalHasElapsed() {
+		SignupRequest signupRequest = SignupRequest.builder().email("email").password("password").firstName("firstName")
+				.lastName("lastName").build();
+		User existingUser = User.builder().firstName("firstName").lastName("lastName").email("email")
+				.password("encodedPassword").verified(false).build();
+		when(userRepository.findByEmail("email")).thenReturn(Optional.of(existingUser));
+		when(emailVerificationTokenRepository.findFirstByUserOrderByCreatedAtDesc(existingUser)).thenReturn(Optional
+				.of(EmailVerificationToken.builder().createdAt(LocalDateTime.now().minus(Duration.ofMillis(60_000))).build()));
+		when(emailVerificationTokenRepository.save(any())).thenReturn(null);
+		doNothing().when(mailService).sendActivationEmail(eq("firstName"), eq("email"), any(String.class));
+		ReflectionTestUtils.setField(authService, "verificationEmailResendIntervalMs", 60_000L);
+
+		authService.signup(signupRequest);
+
+		verify(emailVerificationTokenRepository).save(any(EmailVerificationToken.class));
 		verify(mailService).sendActivationEmail(eq("firstName"), eq("email"), any(String.class));
 	}
 
