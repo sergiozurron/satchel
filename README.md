@@ -50,25 +50,6 @@ curl -X POST https://satchel.sergiozurron.site/api/v1/wallets \
 
 The response includes `address`. Send testnet ETH to that address to credit the balance. Loans, withdrawals, and errors are covered below.
 
-## Connect to a running instance
-
-Use `https://satchel.sergiozurron.site`. Resource paths are under `/api/v1`. Send `Content-Type: application/json` when you send a body.
-
-Check that the instance is up:
-
-```bash
-curl https://satchel.sergiozurron.site/api/v1
-curl https://satchel.sergiozurron.site/actuator/health
-```
-
-The home call returns `{"message":"Welcome to the Satchel API."}`. A healthy process returns `{"status":"UP"}`.
-
-After login, send `Authorization: Bearer <token>` on every protected call.
-
-Curl and other server-side clients are the intended clients. Browser CORS allows only `http://localhost:5173`, and only `GET`, `POST`, `PUT`, `DELETE`, and `OPTIONS`. Loan repayment uses `PATCH`, which that list leaves out.
-
-The API allows 120 requests per 60 seconds per IP address. Over the limit the response is HTTP 429 with `error` set to `rate_limit_exceeded` and a `Retry-After` header.
-
 ## Authentication
 
 Signup, the verification link, and login are public.
@@ -189,36 +170,6 @@ Domain failures are one object with `error` and `message`.
 | 500 | `internal_server_error` | Anything else |
 
 An empty list is HTTP 200 and `[]`. A missing or invalid token on a protected route is rejected before this format is used.
-
-## Deployment
-
-The running API is [https://satchel.sergiozurron.site](https://satchel.sergiozurron.site).
-
-`Dockerfile` is a Temurin 17 multi-stage build. The image listens on port 8080, runs as uid 10001, and contains the application jar. Runtime configuration is supplied when the container starts.
-
-Production starts with `SPRING_PROFILES_ACTIVE=prod`. That profile reads:
-
-- Database: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
-- JWT: `JWT_SECRET`, `JWT_EXPIRATION_TIME`
-- Fireblocks: `FIREBLOCKS_API_KEY`, `FIREBLOCKS_API_SECRET`, `FIREBLOCKS_PUBLIC_KEY`, `FIREBLOCKS_OMNIBUS_ID`, `FIREBLOCKS_OMNIBUS_ADDRESS`, `FIREBLOCKS_GAS_STATION_ID`, `FIREBLOCKS_GAS_STATION_ADDRESS`, `DEPOSIT_SWEEP_DELAY`, `DEPOSIT_SUFFIX`
-- Mail: `MAIL_SERVICE`, `MAIL_SENDER`, `URL`, `MAILTRAP_API_TOKEN`, `MAILTRAP_API_VERIFICATION_TEMPLATE`
-
-`URL` is the origin used in the verification link. For this instance it is `https://satchel.sergiozurron.site`.
-
-Every profile also needs the asset settings `SUPPORTED_ASSETS`, `ASSETS_INTEREST_RATE`, `ASSETS_LTV`, `ASSETS_LIQUIDATION_LTV`, `ASSETS_FINANCIAL_MARGIN`, `ASSETS_DEPOSIT_SWEEP_MIN`, `ASSETS_BASE_ASSET`, `INTEREST_ACCRUAL_PERIOD`, `LTV_CHECK_PERIOD`, and `GAS_THRESHOLD`.
-
-Flyway applies the Postgres schema at startup. Hibernate only validates it. `GET /actuator/health` is the health check, and a healthy production body is `{"status":"UP"}`.
-
-Interest accrual and liquidation run inside the process on a schedule. Run one instance so those jobs run once.
-
-To check an image locally:
-
-```bash
-docker build -t satchel:local .
-docker run --rm -p 8080:8080 --env-file .env satchel:local
-```
-
-When Postgres is on the host, set `DB_URL` to `jdbc:postgresql://host.docker.internal:5432/satchel`.
 
 ## Full documentation
 
