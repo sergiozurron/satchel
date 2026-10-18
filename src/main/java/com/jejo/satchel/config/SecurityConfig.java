@@ -34,6 +34,7 @@ public class SecurityConfig {
 				.requestMatchers("/api/v1/auth/**", "/actuator/health").permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/v1").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/v1/funds_transfer").permitAll()
+				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/docs").permitAll()
 				.anyRequest().authenticated())
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.csrf(AbstractHttpConfigurer::disable)
