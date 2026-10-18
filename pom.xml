@@ -119,6 +119,11 @@
 		    <artifactId>mailtrap-java</artifactId>
 		    <version>1.7.0</version>
 		</dependency>
+		<dependency>
+			<groupId>com.bucket4j</groupId>
+			<artifactId>bucket4j_jdk17-core</artifactId>
+			<version>8.19.0</version>
+		</dependency>
 
 		<dependency>
 		    <groupId>org.springframework.boot</groupId>
