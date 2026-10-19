@@ -4,6 +4,17 @@ Satchel is a custodial crypto-banking API that lets you deposit a supported asse
 
 Satchel turns a Fireblocks vault into an account. You get a ledger balance, deposit interest, and a collateralized loan through HTTP, with Fireblocks holding the keys. Loans are ledger entries. The public instance uses the Fireblocks testnet asset ids in [Core concepts](#core-concepts).
 
+## Table of contents
+
+- [Quickstart](#quickstart)
+- [Authentication](#authentication)
+- [Core concepts](#core-concepts)
+- [API overview](#api-overview)
+- [Error handling](#error-handling)
+- [Full documentation](#full-documentation)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Quickstart
 
 The public API is `https://satchel.sergiozurron.site`.
