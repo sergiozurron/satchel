@@ -65,7 +65,7 @@ class LoanServiceTest {
 	private AssetCustodianService assetCustodianService;
 
 	@Mock
-	private ConversionRateService conversionRateService;
+	private AssetTradingService conversionRateService;
 
 	private User currentUser;
 

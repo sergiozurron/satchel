@@ -103,6 +103,11 @@
 			<version>0.12.6</version>
 		</dependency>
 		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpkix-jdk18on</artifactId>
+			<version>1.78.1</version>
+		</dependency>
+		<dependency>
 		  <groupId>com.fireblocks.sdk</groupId>
 		  <artifactId>fireblocks-sdk</artifactId>
 		  <version>11.2.0</version>

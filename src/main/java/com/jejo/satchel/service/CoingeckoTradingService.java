@@ -10,7 +10,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-public class CoingeckoConversionRateService implements ConversionRateService {
+public class CoingeckoTradingService implements AssetTradingService {
 
 	private static final Map<String, String> CURRENCY_MAPPING = Map.of("ETH_TEST5", "ethereum",
 			"USDC_ETH_TEST5_AN74", "usd-coin", "AVAXTEST", "avalanche-2", "ETH-AETH_SEPOLIA",
@@ -18,7 +18,7 @@ public class CoingeckoConversionRateService implements ConversionRateService {
 
 	private final RestClient restClient;
 
-	public CoingeckoConversionRateService() {
+	public CoingeckoTradingService() {
 		this.restClient = RestClient.builder()
 				.baseUrl("https://api.coingecko.com/api/v3/simple/price").build();
 	}

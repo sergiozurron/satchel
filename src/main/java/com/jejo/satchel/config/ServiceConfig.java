@@ -1,12 +1,14 @@
 package com.jejo.satchel.config;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.jejo.satchel.service.AssetCustodianService;
-import com.jejo.satchel.service.CoingeckoConversionRateService;
-import com.jejo.satchel.service.ConversionRateService;
+import com.jejo.satchel.service.AssetTradingService;
+import com.jejo.satchel.service.CoinbaseTradingService;
+import com.jejo.satchel.service.CoingeckoTradingService;
 import com.jejo.satchel.service.FireblocksService;
 
 @Configuration
@@ -20,8 +22,18 @@ public class ServiceConfig {
 	}
 	
 	@Bean
-	ConversionRateService conversionRateService() {
-		return new CoingeckoConversionRateService();
+	@ConditionalOnProperty(name = "satchel.trading.provider", havingValue = "coingecko", matchIfMissing = true)
+	AssetTradingService coingeckoTradingService() {
+		return new CoingeckoTradingService();
+	}
+
+	@Bean
+	@ConditionalOnProperty(name = "satchel.trading.provider", havingValue = "coinbase")
+	AssetTradingService coinbaseTradingService(
+			@Value("${coinbase.api.base-url}") String baseUrl,
+			@Value("${coinbase.api.key-name}") String apiKey,
+			@Value("${coinbase.api.secret}") String apiSecret) {
+		return new CoinbaseTradingService(baseUrl, apiKey, apiSecret);
 	}
 
 }

@@ -39,10 +39,10 @@ public class FinancialService {
 
 	private final DepositWalletRepository depositWalletRepository;
 	private final LoanRepository loanRepository;
-	private final ConversionRateService conversionRateService;
+	private final AssetTradingService conversionRateService;
 
 	public FinancialService(DepositWalletRepository depositWalletRepository,
-			LoanRepository loanRepository, ConversionRateService conversionRateService) {
+			LoanRepository loanRepository, AssetTradingService conversionRateService) {
 		this.depositWalletRepository = depositWalletRepository;
 		this.loanRepository = loanRepository;
 		this.conversionRateService = conversionRateService;

@@ -39,7 +39,7 @@ import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.UserRepository;
 import com.jejo.satchel.service.AssetCustodianService;
-import com.jejo.satchel.service.ConversionRateService;
+import com.jejo.satchel.service.AssetTradingService;
 import com.jejo.satchel.util.JwtUtil;
 
 @SpringBootTest
@@ -68,7 +68,7 @@ public class LoanControllerIntTest {
 	private AssetCustodianService assetCustodianService;
 
 	@MockitoBean
-	private ConversionRateService conversionRateService;
+	private AssetTradingService conversionRateService;
 
 	private User testUser;
 	private Loan activeLoan;
