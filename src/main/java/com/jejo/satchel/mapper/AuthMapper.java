@@ -1,7 +1,6 @@
 package com.jejo.satchel.mapper;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 import org.mapstruct.factory.Mappers;
 
 import com.jejo.satchel.dto.SignupRequest;
