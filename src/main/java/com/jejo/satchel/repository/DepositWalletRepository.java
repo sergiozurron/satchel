@@ -1,5 +1,6 @@
 package com.jejo.satchel.repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +16,5 @@ public interface DepositWalletRepository extends JpaRepository<DepositWallet, Lo
 	public Optional<DepositWallet> findByIdAndUserId(Long id, Long userId);
 	public List<DepositWallet> findAllByUserId(Long userId);
 	public List<DepositWallet> findByAssetId(String assetId);
+	public List<DepositWallet> findByAccruedInterestGreaterThan(BigDecimal accruedInterest);
 }

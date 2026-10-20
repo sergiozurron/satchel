@@ -127,7 +127,7 @@ Satchel sizes the loan from the collateral asset's origination LTV and the CoinG
 
 ### Interest and liquidation
 
-Deposit interest for an asset is that asset's annual rate multiplied by `(1 − fin margin)`. Loan interest uses the borrowed asset's annual rate and accrues while the loan is unpaid.
+Deposit interest for an asset is that asset's annual rate multiplied by `(1 − fin margin)`. It accrues on the wallet balance and is credited to that balance once a day at 00:00 UTC. After the credit, `accruedInterest` is zero and later accrual compounds on the new balance. Loan interest uses the borrowed asset's annual rate and accrues while the loan is unpaid.
 
 If current LTV rises above the collateral asset's liquidation LTV, Satchel reduces `currentCollateral` on the ledger back toward the origination LTV. That reduction stays on the ledger and leaves Fireblocks balances unchanged.
 
@@ -198,7 +198,7 @@ Create a wallet with `{ "assetId" }`. List and get return the same object:
 | `balance` | Ledger balance |
 | `lockedBalance` | Amount locked as collateral |
 | `availableBalance` | `balance` minus `lockedBalance` |
-| `accruedInterest` | Interest credited so far |
+| `accruedInterest` | Interest accrued since the last daily credit |
 | `openedAt` | When the wallet was created |
 | `daysSinceOpened` | Whole days since `openedAt` |
 

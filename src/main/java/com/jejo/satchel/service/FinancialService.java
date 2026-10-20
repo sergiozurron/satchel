@@ -69,6 +69,15 @@ public class FinancialService {
 		log.info("Completed deposit interest accrual task");
 	}
 
+	@Scheduled(cron = "${satchel.financial.interest-credit-cron}", zone = "UTC")
+	@Transactional
+	public void creditAccruedInterestOnDeposits() {
+		depositWalletRepository.findByAccruedInterestGreaterThan(BigDecimal.ZERO)
+				.forEach(deposit -> deposit.creditAccruedInterest());
+
+		log.info("Completed deposit interest credit task");
+	}
+
 	@Scheduled(fixedRateString = "${satchel.financial.accrual-period}")
 	@Transactional
 	public void accrueInterestOnActiveLoans() {

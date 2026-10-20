@@ -71,5 +71,10 @@ public class DepositWallet {
 	public void accrueInterest(BigDecimal amount) {
 		accruedInterest = accruedInterest.add(amount);
 	}
+
+	public void creditAccruedInterest() {
+		balance = balance.add(accruedInterest);
+		accruedInterest = BigDecimal.ZERO;
+	}
 	
 }
