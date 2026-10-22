@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
@@ -96,7 +97,7 @@ public class AccountService {
 	}
 
 	@Transactional
-	public void initiateWithdrawal(WithdrawalRequest withdrawalRequest) {
+	public FundsTransfer initiateWithdrawal(WithdrawalRequest withdrawalRequest) {
 		Long userId = currentUserProvider.getCurrentUser().getId();
 		String assetId = withdrawalRequest.getAssetId();
 		DepositWallet depositWallet = depositWalletRepository
@@ -108,44 +109,45 @@ public class AccountService {
 		}
 		// Detect transfers between two internal accounts and handle them without
 		// blockchain transactions
-		depositWalletRepository
-				.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), assetId)
-				.ifPresentOrElse(destinationWallet -> {
-					if (destinationWallet.getUser().getId().equals(userId)) {
-						throw new SelfTransferException();
-					}
-					// Transfer between two internal accounts: no blockchain transaction needed
-					depositWallet.deposit(withdrawalRequest.getAmount().negate());
-					depositWalletRepository.save(depositWallet);
-					fundsTransferRepository
-							.save(FundsTransfer.builder().depositWallet(depositWallet)
-									.counterpartyAddress(withdrawalRequest.getDestinationAddress())
-									.amount(withdrawalRequest.getAmount().negate())
-									.timestamp(LocalDateTime.now()).isCompleted(true).build());
-					destinationWallet.deposit(withdrawalRequest.getAmount());
-					depositWalletRepository.save(destinationWallet);
-					fundsTransferRepository
-							.save(FundsTransfer.builder().depositWallet(destinationWallet)
-									.counterpartyAddress(depositWallet.getAddress())
-									.amount(withdrawalRequest.getAmount())
-									.timestamp(LocalDateTime.now()).isCompleted(true).build());
-				}, () -> {
-					// Transfer to external account
-					BigDecimal poolSize = assetCustodianService.getPoolSize(assetId);
-					if (poolSize.compareTo(withdrawalRequest.getAmount()) < 0) {
-						throw new InsufficientPoolFundsException();
-					}
-					String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
-							userId, withdrawalRequest.getDestinationAddress());
-					// isCompleted is false because we will wait for the webhook to confirm the
-					// transaction and credit the user's account
-					fundsTransferRepository.save(FundsTransfer.builder()
-							.depositWallet(depositWallet)
+		Optional<DepositWallet> destination = depositWalletRepository
+				.findByAddressAndAssetId(withdrawalRequest.getDestinationAddress(), assetId);
+		if (destination.isPresent()) {
+			DepositWallet destinationWallet = destination.get();
+			if (destinationWallet.getUser().getId().equals(userId)) {
+				throw new SelfTransferException();
+			}
+			// Transfer between two internal accounts: no blockchain transaction needed
+			depositWallet.deposit(withdrawalRequest.getAmount().negate());
+			depositWalletRepository.save(depositWallet);
+			FundsTransfer sourceTransfer = fundsTransferRepository
+					.save(FundsTransfer.builder().depositWallet(depositWallet)
 							.counterpartyAddress(withdrawalRequest.getDestinationAddress())
 							.amount(withdrawalRequest.getAmount().negate())
-							.transactionId(transactionId)
-							.timestamp(LocalDateTime.now()).isCompleted(false).build());
-				});
+							.timestamp(LocalDateTime.now()).isCompleted(true).build());
+			destinationWallet.deposit(withdrawalRequest.getAmount());
+			depositWalletRepository.save(destinationWallet);
+			fundsTransferRepository
+					.save(FundsTransfer.builder().depositWallet(destinationWallet)
+							.counterpartyAddress(depositWallet.getAddress())
+							.amount(withdrawalRequest.getAmount())
+							.timestamp(LocalDateTime.now()).isCompleted(true).build());
+			return sourceTransfer;
+		}
+		// Transfer to external account
+		BigDecimal poolSize = assetCustodianService.getPoolSize(assetId);
+		if (poolSize.compareTo(withdrawalRequest.getAmount()) < 0) {
+			throw new InsufficientPoolFundsException();
+		}
+		String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
+				userId, withdrawalRequest.getDestinationAddress());
+		// isCompleted is false because we will wait for the webhook to confirm the
+		// transaction and credit the user's account
+		return fundsTransferRepository.save(FundsTransfer.builder()
+				.depositWallet(depositWallet)
+				.counterpartyAddress(withdrawalRequest.getDestinationAddress())
+				.amount(withdrawalRequest.getAmount().negate())
+				.transactionId(transactionId)
+				.timestamp(LocalDateTime.now()).isCompleted(false).build());
 	}
 
 	@Transactional

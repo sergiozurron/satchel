@@ -28,6 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -286,9 +287,16 @@ public class FundsTransferControllerIntTest {
 		BigDecimal amount = new BigDecimal("25");
 		WithdrawalRequest request = withdrawalRequest(ASSET_ID, "0xdest", amount);
 
-		postWithdrawal(request, true)
+		MvcResult result = postWithdrawal(request, true)
 				.andExpect(status().isOk())
-				.andExpect(content().string(""));
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.amount").value(-25))
+				.andExpect(jsonPath("$.counterpartyAddress").value("0xdest"))
+				.andExpect(jsonPath("$.isCompleted").value(true))
+				.andExpect(jsonPath("$.walletId").value(source.getId()))
+				.andExpect(jsonPath("$.assetId").value(ASSET_ID))
+				.andExpect(jsonPath("$.transactionId").value(Matchers.nullValue()))
+				.andReturn();
 
 		assertThat(reload(source).getBalance()).isEqualByComparingTo("75");
 		assertThat(reload(destination).getBalance()).isEqualByComparingTo("35");
@@ -298,6 +306,8 @@ public class FundsTransferControllerIntTest {
 		assertThat(sourceTransfers.get(0).getAmount()).isEqualByComparingTo("-25");
 		assertThat(sourceTransfers.get(0).getCounterpartyAddress()).isEqualTo("0xdest");
 		assertThat(sourceTransfers.get(0).getIsCompleted()).isTrue();
+		assertThat(objectMapper.readTree(result.getResponse().getContentAsString()).get("id").asLong())
+				.isEqualTo(sourceTransfers.get(0).getId());
 
 		List<FundsTransfer> destinationTransfers = transfersFor(destination.getId());
 		assertThat(destinationTransfers).hasSize(1);
@@ -339,7 +349,13 @@ public class FundsTransferControllerIntTest {
 
 		postWithdrawal(request, true)
 				.andExpect(status().isOk())
-				.andExpect(content().string(""));
+				.andExpect(content().contentType(MediaType.APPLICATION_JSON))
+				.andExpect(jsonPath("$.amount").value(-59))
+				.andExpect(jsonPath("$.counterpartyAddress").value(destination))
+				.andExpect(jsonPath("$.isCompleted").value(false))
+				.andExpect(jsonPath("$.walletId").value(source.getId()))
+				.andExpect(jsonPath("$.assetId").value(ASSET_ID))
+				.andExpect(jsonPath("$.transactionId").value(Matchers.nullValue()));
 
 		assertThat(reload(source).getBalance()).isEqualByComparingTo("100");
 

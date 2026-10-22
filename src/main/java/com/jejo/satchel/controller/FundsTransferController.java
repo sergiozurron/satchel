@@ -14,6 +14,7 @@ import com.jejo.satchel.dto.TransactionDetails;
 import com.jejo.satchel.dto.WebhookNotification;
 import com.jejo.satchel.dto.WithdrawalRequest;
 import com.jejo.satchel.mapper.FundsTransferMapper;
+import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.service.AccountService;
 
 import jakarta.validation.Valid;
@@ -37,9 +38,10 @@ public class FundsTransferController {
 	}
 
 	@PostMapping("/withdrawal")
-	public ResponseEntity<Void> initiateWithdrawal(@Valid @RequestBody WithdrawalRequest withdrawalRequest) {
-		accountService.initiateWithdrawal(withdrawalRequest);
-		return ResponseEntity.ok(null);
+	public ResponseEntity<FundsTransferResponse> initiateWithdrawal(
+			@Valid @RequestBody WithdrawalRequest withdrawalRequest) {
+		FundsTransfer created = accountService.initiateWithdrawal(withdrawalRequest);
+		return ResponseEntity.ok(fundsTransferMapper.toFundsTransferResponse(created));
 	}
 
 	@PostMapping

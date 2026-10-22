@@ -111,7 +111,7 @@ A withdrawal body is `assetId`, `destinationAddress`, and `amount`. The availabl
 - Another Satchel user's address for that asset is an immediate internal transfer: the source is debited and the destination is credited.
 - Any other address is paid from the omnibus pool. The caller is debited when the webhook confirms the transfer.
 
-The withdrawal call returns HTTP 200 with an empty body.
+The withdrawal call returns HTTP 200 and the caller’s funds transfer. An internal transfer also records a credit on the destination wallet. That credit is not in this response.
 
 ### Loans
 
@@ -214,7 +214,7 @@ curl https://satchel.sergiozurron.site/api/v1/wallets \
 
 `GET /api/v1/funds_transfer` returns the caller's transfers, newest first. Each item has `id`, `amount`, `timestamp`, `transactionId`, `counterpartyAddress`, `isCompleted`, `walletId`, and `assetId`. `amount` is positive for a deposit and negative for a withdrawal. A pending external withdrawal has `isCompleted` false.
 
-Withdraw with `assetId`, `destinationAddress`, and `amount`. Success is HTTP 200 with an empty body.
+Withdraw with `assetId`, `destinationAddress`, and `amount`. Success is HTTP 200 and the caller’s transfer, with the same fields as one list item. `amount` is negative. An external withdrawal has `isCompleted` false until the webhook confirms it. An internal transfer also records a completed credit on the destination wallet. The response is the caller’s debit.
 
 ```bash
 curl -X POST https://satchel.sergiozurron.site/api/v1/funds_transfer/withdrawal \

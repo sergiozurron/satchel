@@ -184,8 +184,10 @@ public class AccountServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, ASSET_ID)).thenReturn(Optional.of(source));
 		when(depositWalletRepository.findByAddressAndAssetId("0xdest", ASSET_ID))
 				.thenReturn(Optional.of(destination));
+		when(fundsTransferRepository.save(any(FundsTransfer.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
-		accountService.initiateWithdrawal(withdrawalRequest("0xdest", amount));
+		FundsTransfer created = accountService.initiateWithdrawal(withdrawalRequest("0xdest", amount));
 
 		assertThat(source.getBalance()).isEqualByComparingTo("75");
 		assertThat(destination.getBalance()).isEqualByComparingTo("35");
@@ -203,6 +205,7 @@ public class AccountServiceTest {
 		assertThat(saved.get(0).getCounterpartyAddress()).isEqualTo("0xdest");
 		assertThat(saved.get(0).getIsCompleted()).isTrue();
 		assertThat(saved.get(0).getTimestamp()).isNotNull();
+		assertThat(created).isSameAs(saved.get(0));
 
 		assertThat(saved.get(1).getDepositWallet()).isSameAs(destination);
 		assertThat(saved.get(1).getAmount()).isEqualByComparingTo(amount);
@@ -219,8 +222,10 @@ public class AccountServiceTest {
 		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, ASSET_ID)).thenReturn(Optional.of(source));
 		when(depositWalletRepository.findByAddressAndAssetId("0xexternal", ASSET_ID)).thenReturn(Optional.empty());
 		when(assetCustodianService.getPoolSize(ASSET_ID)).thenReturn(amount);
+		when(fundsTransferRepository.save(any(FundsTransfer.class)))
+				.thenAnswer(invocation -> invocation.getArgument(0));
 
-		accountService.initiateWithdrawal(withdrawalRequest("0xexternal", amount));
+		FundsTransfer created = accountService.initiateWithdrawal(withdrawalRequest("0xexternal", amount));
 
 		assertThat(source.getBalance()).isEqualByComparingTo("100");
 		verify(depositWalletRepository, never()).save(any());
@@ -236,6 +241,7 @@ public class AccountServiceTest {
 		assertThat(pending.getIsCompleted()).isFalse();
 		assertThat(pending.getTransactionId()).isNull();
 		assertThat(pending.getTimestamp()).isNotNull();
+		assertThat(created).isSameAs(pending);
 	}
 
 	@Test
