@@ -9,6 +9,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+
+import jakarta.validation.ConstraintViolationException;
 
 import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
@@ -56,6 +59,30 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
 		Set<ErrorResponse> errors = ex.getBindingResult().getFieldErrors().stream()
 				.map(fieldError -> new ErrorResponse(fieldError.getCode(), fieldError.getDefaultMessage()))
+				.collect(Collectors.toSet());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+	}
+
+	@ExceptionHandler(ConstraintViolationException.class)
+	public ResponseEntity<Set<ErrorResponse>> handleConstraintViolationException(ConstraintViolationException ex) {
+		Set<ErrorResponse> errors = ex.getConstraintViolations().stream()
+				.map(violation -> new ErrorResponse(
+						violation.getConstraintDescriptor().getAnnotation().annotationType().getSimpleName(),
+						violation.getMessage()))
+				.collect(Collectors.toSet());
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+	}
+
+	@ExceptionHandler(HandlerMethodValidationException.class)
+	public ResponseEntity<Set<ErrorResponse>> handleHandlerMethodValidationException(
+			HandlerMethodValidationException ex) {
+		Set<ErrorResponse> errors = ex.getParameterValidationResults().stream()
+				.flatMap(result -> result.getResolvableErrors().stream())
+				.map(error -> {
+					String[] codes = error.getCodes();
+					String code = codes != null && codes.length > 0 ? codes[codes.length - 1] : null;
+					return new ErrorResponse(code, error.getDefaultMessage());
+				})
 				.collect(Collectors.toSet());
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
 	}

@@ -153,6 +153,7 @@ On the current list every interest rate is 0.05 and every fin margin is 0.1. Liq
 | GET | `/api/v1/loans/{id}` | Get one loan | Yes |
 | POST | `/api/v1/loans` | Open a loan | Yes |
 | PATCH | `/api/v1/loans/{id}` | Repay part or all of a loan | Yes |
+| GET | `/api/v1/pool/{assetId}` | Omnibus available balance for one asset | Yes |
 
 ## Error handling
 
@@ -270,6 +271,22 @@ curl -X PATCH https://satchel.sergiozurron.site/api/v1/loans/42 \
 ```
 
 The response is the updated loan.
+
+### Pool
+
+`GET /api/v1/pool/{assetId}` returns the omnibus available balance for one supported asset. A new loan and an external withdrawal are checked against this balance.
+
+| Field | Meaning |
+| --- | --- |
+| `assetId` | Fireblocks asset id |
+| `availableLiquidity` | Omnibus available balance |
+
+A custodian lookup that fails is reported as `availableLiquidity` 0. An unsupported asset id is HTTP 400 `ValidAssetId`.
+
+```bash
+curl https://satchel.sergiozurron.site/api/v1/pool/ETH_TEST5 \
+  -H "Authorization: Bearer <jwt>"
+```
 
 ## Contributing
 
