@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,12 +29,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
+import com.jejo.satchel.exception.CollateralTransferException;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.TradingOrderException;
 import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
@@ -51,6 +55,8 @@ class LoanServiceTest {
 	private static final Long USER_ID = 1L;
 	private static final String COLLATERAL_ASSET_ID = "TEST_BTC";
 	private static final String LOAN_ASSET_ID = "TEST_USDT";
+	private static final String COINBASE_ADDRESS = "0xcoinbase";
+	private static final String OMNIBUS_ADDRESS = "0xomnibus";
 	private final Map<String, BigDecimal> assetInterestRates = Map.of("TEST_USDT",
 			BigDecimal.valueOf(0.05));
 
@@ -83,6 +89,8 @@ class LoanServiceTest {
 		ReflectionTestUtils.setField(loanService, "assetInterestRates", assetInterestRates);
 		ReflectionTestUtils.setField(loanService, "assetLtv",
 				Map.of(COLLATERAL_ASSET_ID, BigDecimal.valueOf(0.5)));
+		ReflectionTestUtils.setField(loanService, "coinbaseEthCollateralAddress", COINBASE_ADDRESS);
+		ReflectionTestUtils.setField(loanService, "omnibusAddress", OMNIBUS_ADDRESS);
 		when(currentUserProvider.getCurrentUser()).thenReturn(currentUser);
 	}
 
@@ -109,6 +117,8 @@ class LoanServiceTest {
 						.lockedBalance(BigDecimal.ZERO).build()));
 		Loan savedLoan = Loan.builder().id(1L).build();
 		when(loanRepository.save(any(Loan.class))).thenReturn(savedLoan);
+		when(assetCustodianService.createTransaction(COLLATERAL_ASSET_ID, collateralAmount, USER_ID,
+				COINBASE_ADDRESS)).thenReturn("tx-1");
 
 		Loan result = loanService.processLoanRequest(loanRequest);
 
@@ -118,6 +128,8 @@ class LoanServiceTest {
 		verify(loanRepository).save(loanCaptor.capture());
 		assertThat(loanCaptor.getValue().getCurrentCollateral()).isEqualByComparingTo(collateralAmount);
 		assertThat(loanCaptor.getValue().isPaid()).isFalse();
+		verify(assetCustodianService).createTransaction(COLLATERAL_ASSET_ID, collateralAmount, USER_ID,
+				COINBASE_ADDRESS);
 	}
 
 	@Test
@@ -135,6 +147,7 @@ class LoanServiceTest {
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(conversionRateService, never()).getConversionRate(any(), any());
 		verify(assetCustodianService, never()).getPoolSize(LOAN_ASSET_ID);
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 	}
 
 	@Test
@@ -154,6 +167,7 @@ class LoanServiceTest {
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(conversionRateService, never()).getConversionRate(any(), any());
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 	}
 
 	@Test
@@ -184,6 +198,7 @@ class LoanServiceTest {
 		// Collateral must not be locked/saved when the request fails downstream
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 
 		// Sanity check on the amount comparison used to trigger the exception
 		assertThat(omnibusBalance).isLessThan(expectedLoanAmount);
@@ -219,6 +234,35 @@ class LoanServiceTest {
 		// @Transactional annotation will roll back the DB transaction).
 		verify(depositWalletRepository).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
+	}
+
+	@Test
+	void processLoanRequest_nullCollateralTransfer_throwsCollateralTransferException() {
+		BigDecimal collateralAmount = BigDecimal.valueOf(2);
+		CreateLoanRequest loanRequest = new CreateLoanRequest();
+		loanRequest.setCollateralAssetId(COLLATERAL_ASSET_ID);
+		loanRequest.setLoanAssetId(LOAN_ASSET_ID);
+		loanRequest.setCollateralAmount(collateralAmount);
+
+		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
+		when(conversionRateService.getConversionRate(COLLATERAL_ASSET_ID, LOAN_ASSET_ID))
+				.thenReturn(BigDecimal.TEN);
+		when(assetCustodianService.getPoolSize(LOAN_ASSET_ID))
+				.thenReturn(BigDecimal.valueOf(1_000_000));
+		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, LOAN_ASSET_ID))
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
+		when(loanRepository.save(any(Loan.class))).thenReturn(Loan.builder().id(1L).build());
+		when(assetCustodianService.createTransaction(COLLATERAL_ASSET_ID, collateralAmount, USER_ID,
+				COINBASE_ADDRESS)).thenReturn(null);
+
+		assertThatThrownBy(() -> loanService.processLoanRequest(loanRequest))
+				.isInstanceOf(CollateralTransferException.class);
+
+		verify(loanRepository).save(any(Loan.class));
 	}
 
 	// ========== repayLoan helpers ==========
@@ -614,6 +658,7 @@ class LoanServiceTest {
 		BigDecimal ltv = result.getOutstandingAmount().divide(collateralValue, 8,
 				RoundingMode.HALF_UP);
 		assertThat(ltv).isLessThanOrEqualTo(new BigDecimal("0.8"));
+		verify(conversionRateService).withdraw("ETH_TEST5", new BigDecimal("0.5"), OMNIBUS_ADDRESS);
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
@@ -631,6 +676,7 @@ class LoanServiceTest {
 		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");
 		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
@@ -647,6 +693,7 @@ class LoanServiceTest {
 
 		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 	}
 
 	@Test
@@ -664,6 +711,8 @@ class LoanServiceTest {
 		BigDecimal ltv = result.getOutstandingAmount().divide(collateralValue, 8,
 				RoundingMode.HALF_UP);
 		assertThat(ltv).isLessThanOrEqualTo(new BigDecimal("0.8"));
+		verify(conversionRateService).withdraw("ETH_TEST5", new BigDecimal("8.3333333"),
+				OMNIBUS_ADDRESS);
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
@@ -684,7 +733,26 @@ class LoanServiceTest {
 		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		verify(conversionRateService).withdraw("ETH_TEST5", new BigDecimal("0.5"), OMNIBUS_ADDRESS);
 		verify(conversionRateService, never()).getConversionRate(any(), any());
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+	}
+
+	@Test
+	void unlockCollateral_shouldLeavePledgeLocked_whenWithdrawFails() {
+		Loan loan = pledgeLoan("1200", "1.0000000");
+		DepositWallet collateralWallet = pledgedWallet("1.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		stubUnlock(loan, collateralWallet, "3000");
+		doThrow(new TradingOrderException("send failed")).when(conversionRateService)
+				.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("0.5")), eq(OMNIBUS_ADDRESS));
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.5")))
+				.isInstanceOf(TradingOrderException.class);
+
+		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
@@ -695,6 +763,8 @@ class LoanServiceTest {
 
 		assertThatThrownBy(() -> loanService.unlockCollateral(99L, new BigDecimal("0.1")))
 				.isInstanceOf(LoanNotFoundException.class).hasMessage("Loan not found");
+
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 	}
 
 	@Test
@@ -705,6 +775,7 @@ class LoanServiceTest {
 				.isInstanceOf(LoanNotFoundException.class);
 
 		verify(depositWalletRepository, never()).findByUserIdAndAssetId(any(), any());
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 	}
 
 	@Test
@@ -720,6 +791,7 @@ class LoanServiceTest {
 
 		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
 		verify(conversionRateService, never()).getConversionRate(any(), any());
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}

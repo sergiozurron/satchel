@@ -48,4 +48,9 @@ public class CoingeckoTradingService implements AssetTradingService {
 		return getConversionRate(fromAsset, toAsset).multiply(amount);
 	}
 
+	@Override
+	public void withdraw(String asset, BigDecimal amount, String address) {
+		// Paper prices only. Unlock still updates the ledger; coins are not moved.
+	}
+
 }

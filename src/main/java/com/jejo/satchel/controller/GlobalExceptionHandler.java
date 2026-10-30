@@ -15,6 +15,7 @@ import jakarta.validation.ConstraintViolationException;
 
 import com.jejo.satchel.dto.ErrorResponse;
 import com.jejo.satchel.exception.AccountsAlreadyCreatedException;
+import com.jejo.satchel.exception.CollateralTransferException;
 import com.jejo.satchel.exception.DepositWalletAlreadyExistsException;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.DepositWalletNotFoundException;
@@ -37,7 +38,8 @@ import com.jejo.satchel.exception.UserAlreadyVerifiedException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	public static final String UNABLE_TO_GET_ADDRESS = "unable_to_get_address";
+	public static final String ERROR_UNABLE_TO_SEND_COLLATERAL = "unable_to_send_collateral";
+	public static final String ERROR_UNABLE_TO_GET_ADDRESS = "unable_to_get_address";
 	public static final String ERROR_DEPOSIT_WALLET_ALREADY_EXISTS = "deposit_wallet_already_exists";
 	public static final String ERROR_DEPOSIT_WALLET_NOT_FOUND = "deposit_wallet_not_found";
 	public static final String ERROR_INVALID_REPAYMENT_AMOUNT = "invalid_repayment_amount";
@@ -199,8 +201,14 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(UnableToGetAddressException.class)
 	public ResponseEntity<ErrorResponse> handleUnableToGetAddressException(UnableToGetAddressException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-				.body(new ErrorResponse(UNABLE_TO_GET_ADDRESS, ex.getMessage()));
+				.body(new ErrorResponse(ERROR_UNABLE_TO_GET_ADDRESS, ex.getMessage()));
 	} 
+	
+	@ExceptionHandler(CollateralTransferException.class)
+	public ResponseEntity<ErrorResponse> handleUnableToGetAddressException(CollateralTransferException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+				.body(new ErrorResponse(ERROR_UNABLE_TO_SEND_COLLATERAL, ex.getMessage()));
+	}  
 	
 	@ExceptionHandler(UnhealthyLtvException.class)
 	public ResponseEntity<ErrorResponse> handleUnhealthyLtvException(UnhealthyLtvException ex) {

@@ -37,6 +37,8 @@ public class AccountService {
 	public String omnibusAddress;
 	@Value("${satchel.custodian.account.gas-station.address}")
 	public String gasStationAddress;
+	@Value("${satchel.trading.eth-collateral-address}")
+	private String ethCollateralAddress;
 
 	@Value("${satchel.custodian.transaction.status.completed}")
 	public String transactionStatusCompleted;
@@ -63,6 +65,7 @@ public class AccountService {
 		log.info("Processing transaction update for txId: {} with status {}", txDetails.getId(),
 				txDetails.getStatus());
 		if (txDetails.getDestinationAddress().equals(omnibusAddress)
+				|| txDetails.getDestinationAddress().equals(ethCollateralAddress)
 				|| txDetails.getSourceAddress().equals(gasStationAddress)
 				|| !txDetails.getStatus().equals(transactionStatusCompleted)
 				|| !txDetails.getSubStatus().equals(transactionSubstatusConfirmed)) {
@@ -126,11 +129,10 @@ public class AccountService {
 							.timestamp(LocalDateTime.now()).isCompleted(true).build());
 			destinationWallet.deposit(withdrawalRequest.getAmount());
 			depositWalletRepository.save(destinationWallet);
-			fundsTransferRepository
-					.save(FundsTransfer.builder().depositWallet(destinationWallet)
-							.counterpartyAddress(depositWallet.getAddress())
-							.amount(withdrawalRequest.getAmount())
-							.timestamp(LocalDateTime.now()).isCompleted(true).build());
+			fundsTransferRepository.save(FundsTransfer.builder().depositWallet(destinationWallet)
+					.counterpartyAddress(depositWallet.getAddress())
+					.amount(withdrawalRequest.getAmount()).timestamp(LocalDateTime.now())
+					.isCompleted(true).build());
 			return sourceTransfer;
 		}
 		// Transfer to external account
@@ -138,15 +140,13 @@ public class AccountService {
 		if (poolSize.compareTo(withdrawalRequest.getAmount()) < 0) {
 			throw new InsufficientPoolFundsException();
 		}
-		String transactionId = assetCustodianService.createTransaction(assetId, withdrawalRequest.getAmount(),
-				userId, withdrawalRequest.getDestinationAddress());
+		String transactionId = assetCustodianService.createTransaction(assetId,
+				withdrawalRequest.getAmount(), userId, withdrawalRequest.getDestinationAddress());
 		// isCompleted is false because we will wait for the webhook to confirm the
 		// transaction and credit the user's account
-		return fundsTransferRepository.save(FundsTransfer.builder()
-				.depositWallet(depositWallet)
+		return fundsTransferRepository.save(FundsTransfer.builder().depositWallet(depositWallet)
 				.counterpartyAddress(withdrawalRequest.getDestinationAddress())
-				.amount(withdrawalRequest.getAmount().negate())
-				.transactionId(transactionId)
+				.amount(withdrawalRequest.getAmount().negate()).transactionId(transactionId)
 				.timestamp(LocalDateTime.now()).isCompleted(false).build());
 	}
 

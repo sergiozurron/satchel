@@ -117,7 +117,7 @@ The withdrawal call returns HTTP 200 and the caller’s funds transfer. An inter
 
 You need a deposit wallet for the collateral asset and a deposit wallet for the asset you want to borrow. The body is `loanAssetId`, `collateralAssetId`, and `collateralAmount`.
 
-Satchel sizes the loan from the collateral asset's origination LTV and the CoinGecko price, locks that collateral, and credits the loan asset to its wallet. On the current asset list every origination LTV is 0.8, so borrowing against 1 ETH at an ETH/USDC price of 3000 credits 2400 USDC.
+Satchel sizes the loan from the collateral asset's origination LTV and the CoinGecko price, locks that collateral, and credits the loan asset to its wallet. On the current asset list every origination LTV is 0.8, so borrowing against 1 ETH at an ETH/USDC price of 3000 credits 2400 USDC. Origination sends the locked collateral from the omnibus vault to the Coinbase collateral address. Unlocking asks the trading service to send that amount back to the omnibus address.
 
 `collateralAmount` stays the amount locked at origination. `currentCollateral` is what remains. Outstanding debt is `amount + accruedInterest - returnedAmount`. `isPaid` is true only when that debt is zero.
 
@@ -127,7 +127,7 @@ Satchel sizes the loan from the collateral asset's origination LTV and the CoinG
 
 ### Unlocking collateral
 
-`POST /api/v1/loans/{id}/collateral` with `{"amount": ...}` releases that amount of pledged collateral. After the release, the loan's LTV must still be at or under the collateral asset's origination LTV. A paid loan can release whatever `currentCollateral` remains. A request above that limit returns HTTP 400 `unhealthy_ltv`.
+`POST /api/v1/loans/{id}/collateral` with `{"amount": ...}` releases that amount of pledged collateral and asks the trading service to send it back to the omnibus address. After the release, the loan's LTV must still be at or under the collateral asset's origination LTV. A paid loan can release whatever `currentCollateral` remains. A request above that limit returns HTTP 400 `unhealthy_ltv`.
 
 ### Interest and liquidation
 

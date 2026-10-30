@@ -5,4 +5,6 @@ import java.math.BigDecimal;
 public interface AssetTradingService {
 	BigDecimal getConversionRate(String fromCurrency, String toCurrency);
 	BigDecimal sell(String fromAsset, String toAsset, BigDecimal amount);
+
+	void withdraw(String asset, BigDecimal amount, String address);
 }

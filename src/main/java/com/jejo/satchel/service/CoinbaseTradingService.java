@@ -9,12 +9,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jejo.satchel.exception.TradingOrderException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,9 +36,14 @@ public class CoinbaseTradingService implements AssetTradingService {
 	private final String host;
 
 	public CoinbaseTradingService(String baseUrl, String apiKey, String apiSecret) {
-		this.host = URI.create(baseUrl).getHost();
-		this.jwt = new CoinbaseJwt(apiKey, apiSecret);
-		this.restClient = RestClient.builder().baseUrl(baseUrl).build();
+		this(RestClient.builder().baseUrl(baseUrl).build(), new CoinbaseJwt(apiKey, apiSecret),
+				URI.create(baseUrl).getHost());
+	}
+
+	CoinbaseTradingService(RestClient restClient, CoinbaseJwt jwt, String host) {
+		this.restClient = restClient;
+		this.jwt = jwt;
+		this.host = host;
 	}
 
 	@Override
@@ -75,6 +82,50 @@ public class CoinbaseTradingService implements AssetTradingService {
 			return placeOrder(inverse, "BUY", amount, false);
 		}
 		return null;
+	}
+
+	@Override
+	public void withdraw(String asset, BigDecimal amount, String address) {
+		String currency = CURRENCY_MAPPING.get(asset);
+		if (currency == null) {
+			throw new TradingOrderException("No Coinbase currency for collateral asset " + asset);
+		}
+		String accountId = accountId(currency);
+		Map<String, String> body = new LinkedHashMap<>();
+		body.put("type", "send");
+		body.put("to", address);
+		body.put("amount", amount.toPlainString());
+		body.put("currency", currency);
+		body.put("idem", UUID.randomUUID().toString());
+		String path = "/v2/accounts/" + accountId + "/transactions";
+		String token = jwt.sign("POST", host, path);
+		restClient.post().uri(path).header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON).body(body).retrieve()
+				.onStatus(HttpStatusCode::isError, (request, response) -> {
+					throw new TradingOrderException("Coinbase collateral send failed");
+				}).toBodilessEntity();
+	}
+
+	private String accountId(String currency) {
+		String path = "/v2/accounts";
+		String token = jwt.sign("GET", host, path);
+		JsonNode accounts = restClient.get().uri(path + "?limit=100")
+				.header("Authorization", "Bearer " + token).retrieve()
+				.onStatus(HttpStatusCode::isError, (request, response) -> {
+					throw new TradingOrderException("Coinbase account lookup failed");
+				}).body(JsonNode.class);
+		if (accounts == null) {
+			throw new TradingOrderException("Coinbase account lookup failed");
+		}
+		for (JsonNode account : accounts.path("data")) {
+			if (currency.equals(account.path("currency").path("code").asText())) {
+				String id = account.path("id").asText("");
+				if (!id.isBlank()) {
+					return id;
+				}
+			}
+		}
+		throw new TradingOrderException("Coinbase account not found for " + currency);
 	}
 
 	private BigDecimal placeOrder(String productId, String side, BigDecimal amount,

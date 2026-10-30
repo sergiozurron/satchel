@@ -1,6 +1,11 @@
 package com.jejo.satchel.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -597,6 +602,10 @@ public class LoanControllerIntTest {
 				.thenReturn(BigDecimal.TEN);
 		when(assetCustodianService.getPoolSize("USDC_ETH_TEST5_AN74"))
 				.thenReturn(new BigDecimal("1000000"));
+		when(assetCustodianService.createTransaction(eq("ETH_TEST5"),
+				argThat(amount -> amount != null && amount.compareTo(BigDecimal.ONE) == 0),
+				eq(testUser.getId()), eq("0x0000000000000000000000000000000000000001")))
+				.thenReturn("tx-1");
 
 		CreateLoanRequest request = new CreateLoanRequest();
 		request.setLoanAssetId("USDC_ETH_TEST5_AN74");
@@ -638,6 +647,9 @@ public class LoanControllerIntTest {
 		assertThat(saved.getAccruedInterest()).isEqualByComparingTo("0");
 		assertThat(saved.isPaid()).isFalse();
 		assertThat(saved.getInterestRate()).isEqualByComparingTo("0.05");
+		verify(assetCustodianService).createTransaction(eq("ETH_TEST5"),
+				argThat(amount -> amount != null && amount.compareTo(BigDecimal.ONE) == 0),
+				eq(testUser.getId()), eq("0x0000000000000000000000000000000000000001"));
 	}
 
 	@Test
@@ -726,6 +738,9 @@ public class LoanControllerIntTest {
 		assertThat(updated.getCollateralAmount()).isEqualByComparingTo("1");
 		assertThat(updatedCollateral.getLockedBalance()).isEqualByComparingTo("0.5");
 		assertThat(updatedCollateral.getBalance()).isEqualByComparingTo("2");
+		verify(conversionRateService).withdraw(eq("ETH_TEST5"),
+				argThat(amount -> amount != null && amount.compareTo(new BigDecimal("0.5")) == 0),
+				eq("0x8eEAa5d944d1B193241d513F6D29Ac82AEBbAA2a"));
 	}
 
 	@Test
@@ -747,6 +762,7 @@ public class LoanControllerIntTest {
 				.findByUserIdAndAssetId(testUser.getId(), "ETH_TEST5").orElseThrow();
 		assertThat(unchanged.getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(unchangedCollateral.getLockedBalance()).isEqualByComparingTo("1");
+		verify(conversionRateService, never()).withdraw(any(), any(), any());
 	}
 
 	@Test

@@ -10,11 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.jejo.satchel.dto.CreateLoanRequest;
+import com.jejo.satchel.exception.CollateralTransferException;
 import com.jejo.satchel.exception.DepositWalletNotFoundByAssetIdException;
 import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.UnableToConvertAsset;
 import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.model.DepositWallet;
@@ -35,6 +37,10 @@ public class LoanService {
 	private Map<String, BigDecimal> assetInterestRates;
 	@Value("#{${satchel.financial.assets.ltv}}")
 	private Map<String, BigDecimal> assetLtv;
+	@Value("${satchel.trading.eth-collateral-address}")
+	private String coinbaseEthCollateralAddress;
+	@Value("${satchel.custodian.account.omnibus.address}")
+	private String omnibusAddress;
 
 	private final CurrentUserProvider currentUserProvider;
 	private final LoanRepository loanRepository;
@@ -90,6 +96,12 @@ public class LoanService {
 				.interestRate(assetInterestRates.get(loanAssetId))
 				.accruedInterest(BigDecimal.ZERO).grantedAt(grantedAt).user(currentUser).build());
 
+		// Last step: a failed send rolls the loan back. The transfer itself cannot be undone.
+		String transactionId = assetCustodianService.createTransaction(collateralAssetId,
+				collateralAmount, currentUser.getId(), coinbaseEthCollateralAddress);
+		if (transactionId == null) {
+			throw new CollateralTransferException();
+		}
 		return newLoan;
 	}
 
@@ -134,6 +146,8 @@ public class LoanService {
 		if (amount.compareTo(maximumUnlock(loan)) > 0) {
 			throw new UnhealthyLtvException();
 		}
+		// Return the coins before releasing the pledge. A failed send leaves the lock in place.
+		conversionRateService.withdraw(loan.getCollateralAssetId(), amount, omnibusAddress);
 		loan.unlockCollateral(amount);
 		collateralWallet.unlockBalance(amount);
 		return loan;
@@ -144,11 +158,13 @@ public class LoanService {
 		if (loan.getOutstandingAmount().compareTo(BigDecimal.ZERO) <= 0) {
 			return currentCollateral;
 		}
-		BigDecimal healthyLtv = assetLtv.get(loan.getCollateralAssetId());
-		BigDecimal rate = conversionRateService.getConversionRate(loan.getCollateralAssetId(),
-				loan.getLoanAssetId());
+		String collateralAssetId = loan.getCollateralAssetId();
+		String loanAssetId = loan.getLoanAssetId();
+		BigDecimal healthyLtv = assetLtv.get(collateralAssetId);
+		BigDecimal rate = conversionRateService.getConversionRate(collateralAssetId,
+				loanAssetId);
 		if (rate == null || rate.signum() <= 0) {
-			throw new IllegalStateException("Conversion rate is unavailable");
+			throw new UnableToConvertAsset(collateralAssetId, loanAssetId);
 		}
 		BigDecimal minRemaining = loan.getOutstandingAmount().divide(healthyLtv.multiply(rate),
 				COLLATERAL_SCALE, RoundingMode.CEILING);
