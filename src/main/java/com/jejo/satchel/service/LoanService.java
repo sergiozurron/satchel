@@ -1,6 +1,7 @@
 package com.jejo.satchel.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -14,6 +15,7 @@ import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
@@ -26,6 +28,8 @@ import jakarta.transaction.Transactional;
 
 @Service
 public class LoanService {
+
+	private static final int COLLATERAL_SCALE = 7;
 
 	@Value("#{${satchel.financial.assets.interest-rate}}")
 	private Map<String, BigDecimal> assetInterestRates;
@@ -111,20 +115,44 @@ public class LoanService {
 		}
 
 		BigDecimal actualRepaymentAmount = repaymentAmount.min(loan.getOutstandingAmount());
-		// Debit the deposit wallet
 		loanDepositWallet.withdraw(actualRepaymentAmount);
-
-		// Find deposit wallet for the loan collateral and unlock balance
-		DepositWallet collateralDepositWallet = depositWalletRepository
-				.findByUserIdAndAssetId(currentUser.getId(), loan.getCollateralAssetId()).get();
-		
-		BigDecimal releasedCollateral = loan.releaseCollateral(actualRepaymentAmount);
-		collateralDepositWallet.unlockBalance(releasedCollateral);
-
-		// Update loan with repayment
 		loan.returnAmount(actualRepaymentAmount);
 
 		return loan;
+	}
+
+	@Transactional
+	public Loan unlockCollateral(Long loanId, BigDecimal amount) {
+		User currentUser = currentUserProvider.getCurrentUser();
+		Loan loan = loanRepository.findByIdAndUserId(loanId, currentUser.getId())
+				.orElseThrow(LoanNotFoundException::new);
+		DepositWallet collateralWallet = depositWalletRepository
+				.findByUserIdAndAssetId(currentUser.getId(), loan.getCollateralAssetId())
+				.orElseThrow(() -> new DepositWalletNotFoundByAssetIdException(
+						loan.getCollateralAssetId()));
+
+		if (amount.compareTo(maximumUnlock(loan)) > 0) {
+			throw new UnhealthyLtvException();
+		}
+		loan.unlockCollateral(amount);
+		collateralWallet.unlockBalance(amount);
+		return loan;
+	}
+
+	private BigDecimal maximumUnlock(Loan loan) {
+		BigDecimal currentCollateral = loan.getCurrentCollateral();
+		if (loan.getOutstandingAmount().compareTo(BigDecimal.ZERO) <= 0) {
+			return currentCollateral;
+		}
+		BigDecimal healthyLtv = assetLtv.get(loan.getCollateralAssetId());
+		BigDecimal rate = conversionRateService.getConversionRate(loan.getCollateralAssetId(),
+				loan.getLoanAssetId());
+		if (rate == null || rate.signum() <= 0) {
+			throw new IllegalStateException("Conversion rate is unavailable");
+		}
+		BigDecimal minRemaining = loan.getOutstandingAmount().divide(healthyLtv.multiply(rate),
+				COLLATERAL_SCALE, RoundingMode.CEILING);
+		return currentCollateral.subtract(minRemaining).max(BigDecimal.ZERO);
 	}
 
 	@Transactional

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.model.User;
@@ -40,8 +42,8 @@ import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.util.CurrentUserProvider;
 
 /**
- * Unit tests for {@link LoanService}. Combines tests for processLoanRequest and
- * repayLoan.
+ * Unit tests for {@link LoanService}. Combines tests for processLoanRequest,
+ * repayLoan, and unlockCollateral.
  */
 @ExtendWith(MockitoExtension.class)
 class LoanServiceTest {
@@ -242,17 +244,9 @@ class LoanServiceTest {
 				.openedAt(LocalDateTime.now()).user(user).build();
 	}
 
-	private DepositWallet createCollateralWallet(User user) {
-		return DepositWallet.builder().id(2L).address("0xcollateral").assetId("ETH")
-				.balance(new BigDecimal("2.0000000")).lockedBalance(new BigDecimal("0.5000000"))
-				.openedAt(LocalDateTime.now()).user(user).build();
-	}
-
-	private void stubRepaymentWallets(DepositWallet loanWallet, DepositWallet collateralWallet) {
+	private void stubLoanWallet(DepositWallet loanWallet) {
 		when(depositWalletRepository.findByUserIdAndAssetId(1L, "USDC"))
 				.thenReturn(Optional.of(loanWallet));
-		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH"))
-				.thenReturn(Optional.of(collateralWallet));
 	}
 
 	// ========== repayLoan tests ==========
@@ -263,12 +257,11 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("100.0000000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
@@ -277,13 +270,12 @@ class LoanServiceTest {
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("405.0000000"));
 		assertThat(result.isPaid()).isFalse();
-		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.4009901");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
 
 		verify(loanRepository).findByIdAndUserId(1L, 1L);
 		verify(depositWalletRepository).findByUserIdAndAssetId(1L, "USDC");
-		verify(depositWalletRepository).findByUserIdAndAssetId(1L, "ETH");
+		verify(depositWalletRepository, never()).findByUserIdAndAssetId(1L, "ETH");
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 		verify(loanRepository, never()).save(any(Loan.class));
 	}
@@ -294,12 +286,11 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("600.0000000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
@@ -307,9 +298,8 @@ class LoanServiceTest {
 		// Then — requested 600 is capped at the 505 outstanding
 		assertThat(result.getReturnedAmount()).isEqualTo(new BigDecimal("505.0000000"));
 		assertThat(result.isPaid()).isTrue();
-		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("495");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
 
 		verify(loanRepository, never()).save(any(Loan.class));
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
@@ -365,7 +355,7 @@ class LoanServiceTest {
 	}
 
 	@Test
-	void repayLoan_shouldThrowNoSuchElementException_whenCollateralWalletNotFound() {
+	void repayLoan_shouldRepayWhenCollateralWalletIsMissing() {
 		// Given
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
@@ -373,17 +363,16 @@ class LoanServiceTest {
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		when(depositWalletRepository.findByUserIdAndAssetId(1L, "USDC"))
-				.thenReturn(Optional.of(loanWallet));
-		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH"))
-				.thenReturn(Optional.empty());
+		stubLoanWallet(loanWallet);
 
-		// When & Then
-		assertThatThrownBy(() -> loanService.repayLoan(1L, new BigDecimal("100.0000000")))
-				.isInstanceOf(NoSuchElementException.class);
+		// When
+		Loan result = loanService.repayLoan(1L, new BigDecimal("100.0000000"));
 
-		assertThat(activeLoan.getReturnedAmount()).isEqualByComparingTo("0");
-		assertThat(activeLoan.isPaid()).isFalse();
+		// Then
+		assertThat(result.getReturnedAmount()).isEqualByComparingTo("100");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
+		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
+		verify(depositWalletRepository, never()).findByUserIdAndAssetId(1L, "ETH");
 	}
 
 	@Test
@@ -410,26 +399,26 @@ class LoanServiceTest {
 	}
 
 	@Test
-	void repayLoan_shouldDebitLoanWalletAndUnlockProportionalCollateral() {
+	void repayLoan_shouldDebitLoanWalletWithoutUnlockingCollateral() {
 		// Given
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("100.0000000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
-		loanService.repayLoan(1L, repaymentAmount);
+		Loan result = loanService.repayLoan(1L, repaymentAmount);
 
-		// Then — 100 of 505 outstanding releases 0.0990099 of the 0.5 collateral
+		// Then
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
-		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
+		assertThat(result.getCollateralAmount()).isEqualByComparingTo("0.5");
 		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+		verify(depositWalletRepository, never()).findByUserIdAndAssetId(1L, "ETH");
 	}
 
 	@Test
@@ -438,19 +427,18 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("150.0000000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
 
 		// Then
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.3514852");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
 	}
 
 	@Test
@@ -480,12 +468,11 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("600.0000000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
@@ -493,8 +480,7 @@ class LoanServiceTest {
 		// Then
 		assertThat(result.isPaid()).isTrue();
 		assertThat(result.getOutstandingAmount()).isEqualByComparingTo("0");
-		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
 	}
 
 	@Test
@@ -503,40 +489,37 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When - First repayment
 		BigDecimal firstRepayment = new BigDecimal("100.0000000");
 		Loan resultAfterFirst = loanService.repayLoan(1L, firstRepayment);
 
-		// Then - Verify first repayment unlocks its share of collateral
+		// Then
 		assertThat(resultAfterFirst.getReturnedAmount()).isEqualTo(firstRepayment);
 		assertThat(resultAfterFirst.getOutstandingAmount())
 				.isEqualTo(new BigDecimal("405.0000000"));
 		assertThat(resultAfterFirst.isPaid()).isFalse();
-		assertThat(resultAfterFirst.getCurrentCollateral()).isEqualByComparingTo("0.4009901");
+		assertThat(resultAfterFirst.getCurrentCollateral()).isEqualByComparingTo("0.5");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("900");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.4009901");
 
 		// Given - Update loan for second repayment
 		activeLoan.setReturnedAmount(firstRepayment);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
 
-		// When - Second repayment unlocks its share of the collateral still pledged
+		// When
 		BigDecimal secondRepayment = new BigDecimal("200.0000000");
 		Loan resultAfterSecond = loanService.repayLoan(1L, secondRepayment);
 
-		// Then - Verify cumulative repayment and the remaining lock
+		// Then
 		assertThat(resultAfterSecond.getReturnedAmount()).isEqualTo(new BigDecimal("300.0000000"));
 		assertThat(resultAfterSecond.getOutstandingAmount())
 				.isEqualTo(new BigDecimal("205.0000000"));
-		assertThat(resultAfterSecond.getCurrentCollateral()).isEqualByComparingTo("0.2029703");
+		assertThat(resultAfterSecond.getCurrentCollateral()).isEqualByComparingTo("0.5");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("700");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.2029703");
 	}
 
 	@Test
@@ -545,23 +528,21 @@ class LoanServiceTest {
 		User user = createTestUser();
 		Loan activeLoan = createActiveLoan(user);
 		DepositWallet loanWallet = createDepositWallet(user);
-		DepositWallet collateralWallet = createCollateralWallet(user);
 		BigDecimal repaymentAmount = new BigDecimal("0.0001000");
 
 		when(currentUserProvider.getCurrentUser()).thenReturn(user);
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(activeLoan));
-		stubRepaymentWallets(loanWallet, collateralWallet);
+		stubLoanWallet(loanWallet);
 
 		// When
 		Loan result = loanService.repayLoan(1L, repaymentAmount);
 
-		// Then — a tiny repayment floors to no collateral release at scale 7
+		// Then
 		assertThat(result.getReturnedAmount()).isEqualTo(repaymentAmount);
 		assertThat(result.getOutstandingAmount()).isEqualTo(new BigDecimal("504.9999000"));
 		assertThat(result.isPaid()).isFalse();
 		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5000000");
 		assertThat(loanWallet.getBalance()).isEqualByComparingTo("999.9999");
-		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.5000000");
 	}
 
 	@Test
@@ -584,6 +565,163 @@ class LoanServiceTest {
 		BigDecimal repaymentAmount = new BigDecimal("950.0000000");
 		assertThatThrownBy(() -> loanService.repayLoan(1L, repaymentAmount))
 				.isInstanceOf(InsufficientFundsException.class);
+	}
+
+	// ========== unlockCollateral tests ==========
+
+	private void setHealthyLtv(String collateralAssetId, String ltv) {
+		ReflectionTestUtils.setField(loanService, "assetLtv",
+				Map.of(collateralAssetId, new BigDecimal(ltv)));
+	}
+
+	private Loan pledgeLoan(String outstanding, String collateral) {
+		return Loan.builder().id(1L).loanAssetId("USDC_ETH_TEST5_AN74")
+				.collateralAssetId("ETH_TEST5").returnedAmount(BigDecimal.ZERO)
+				.amount(new BigDecimal(outstanding)).collateralAmount(new BigDecimal(collateral))
+				.currentCollateral(new BigDecimal(collateral))
+				.interestRate(new BigDecimal("0.050000")).accruedInterest(BigDecimal.ZERO)
+				.grantedAt(LocalDateTime.now()).user(createTestUser()).build();
+	}
+
+	private DepositWallet pledgedWallet(String locked) {
+		return DepositWallet.builder().id(2L).address("0xcollateral").assetId("ETH_TEST5")
+				.balance(new BigDecimal("2.0000000")).lockedBalance(new BigDecimal(locked))
+				.openedAt(LocalDateTime.now()).user(createTestUser()).build();
+	}
+
+	private void stubUnlock(Loan loan, DepositWallet collateralWallet, String rate) {
+		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(loan));
+		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH_TEST5"))
+				.thenReturn(Optional.of(collateralWallet));
+		when(conversionRateService.getConversionRate("ETH_TEST5", "USDC_ETH_TEST5_AN74"))
+				.thenReturn(new BigDecimal(rate));
+	}
+
+	@Test
+	void unlockCollateral_shouldUnlockUpToHealthyLtv() {
+		Loan loan = pledgeLoan("1200", "1.0000000");
+		DepositWallet collateralWallet = pledgedWallet("1.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		stubUnlock(loan, collateralWallet, "3000");
+
+		Loan result = loanService.unlockCollateral(1L, new BigDecimal("0.5"));
+
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0.5");
+		assertThat(result.getCollateralAmount()).isEqualByComparingTo("1");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0.5");
+		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		BigDecimal collateralValue = result.getCurrentCollateral().multiply(new BigDecimal("3000"));
+		BigDecimal ltv = result.getOutstandingAmount().divide(collateralValue, 8,
+				RoundingMode.HALF_UP);
+		assertThat(ltv).isLessThanOrEqualTo(new BigDecimal("0.8"));
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+	}
+
+	@Test
+	void unlockCollateral_shouldRejectOneUnitAboveTheCap() {
+		Loan loan = pledgeLoan("1200", "1.0000000");
+		DepositWallet collateralWallet = pledgedWallet("1.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		stubUnlock(loan, collateralWallet, "3000");
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.5000001")))
+				.isInstanceOf(UnhealthyLtvException.class);
+
+		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");
+		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+	}
+
+	@Test
+	void unlockCollateral_shouldRejectWhenLoanIsAlreadyAboveTheCap() {
+		Loan loan = pledgeLoan("1200", "1.0000000");
+		DepositWallet collateralWallet = pledgedWallet("1.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		stubUnlock(loan, collateralWallet, "1000");
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.0000001")))
+				.isInstanceOf(UnhealthyLtvException.class);
+
+		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");
+	}
+
+	@Test
+	void unlockCollateral_shouldKeepLtvAtOrUnderTheCapWhenTheMinimumIsCeiled() {
+		Loan loan = pledgeLoan("100", "50.0000000");
+		DepositWallet collateralWallet = pledgedWallet("50.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		stubUnlock(loan, collateralWallet, "3");
+
+		Loan result = loanService.unlockCollateral(1L, new BigDecimal("8.3333333"));
+
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("41.6666667");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("41.6666667");
+		BigDecimal collateralValue = result.getCurrentCollateral().multiply(new BigDecimal("3"));
+		BigDecimal ltv = result.getOutstandingAmount().divide(collateralValue, 8,
+				RoundingMode.HALF_UP);
+		assertThat(ltv).isLessThanOrEqualTo(new BigDecimal("0.8"));
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+	}
+
+	@Test
+	void unlockCollateral_shouldReleaseTheRemainderOfAPaidLoan() {
+		Loan loan = pledgeLoan("100", "0.5000000");
+		loan.setReturnedAmount(new BigDecimal("100"));
+		DepositWallet collateralWallet = pledgedWallet("0.5000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(loan));
+		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH_TEST5"))
+				.thenReturn(Optional.of(collateralWallet));
+
+		Loan result = loanService.unlockCollateral(1L, new BigDecimal("0.5"));
+
+		assertThat(result.isPaid()).isTrue();
+		assertThat(result.getCurrentCollateral()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("0");
+		assertThat(collateralWallet.getBalance()).isEqualByComparingTo("2");
+		verify(conversionRateService, never()).getConversionRate(any(), any());
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+	}
+
+	@Test
+	void unlockCollateral_shouldThrowLoanNotFoundException_whenLoanDoesNotExist() {
+		when(loanRepository.findByIdAndUserId(99L, 1L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(99L, new BigDecimal("0.1")))
+				.isInstanceOf(LoanNotFoundException.class).hasMessage("Loan not found");
+	}
+
+	@Test
+	void unlockCollateral_shouldThrowLoanNotFoundException_whenUserDoesNotOwnLoan() {
+		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.1")))
+				.isInstanceOf(LoanNotFoundException.class);
+
+		verify(depositWalletRepository, never()).findByUserIdAndAssetId(any(), any());
+	}
+
+	@Test
+	void unlockCollateral_shouldThrowDepositWalletNotFound_whenCollateralWalletIsMissing() {
+		Loan loan = pledgeLoan("1200", "1.0000000");
+		setHealthyLtv("ETH_TEST5", "0.8");
+		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(loan));
+		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH_TEST5"))
+				.thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.1")))
+				.isInstanceOf(DepositWalletNotFoundByAssetIdException.class);
+
+		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
+		verify(conversionRateService, never()).getConversionRate(any(), any());
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
 	}
 
 	// ========== getAllUserLoans tests ==========

@@ -123,7 +123,11 @@ Satchel sizes the loan from the collateral asset's origination LTV and the CoinG
 
 ### Repayment
 
-`PATCH /api/v1/loans/{id}` with `{"amount": ...}` repays part or all of a loan. The applied amount is the smaller of the request and the outstanding debt. Collateral unlocks in proportion to the payment. A payment that covers the debt releases whatever `currentCollateral` remains. Repaying a loan that is already paid returns HTTP 409 `loan_not_active`.
+`PATCH /api/v1/loans/{id}` with `{"amount": ...}` repays part or all of a loan. The applied amount is the smaller of the request and the outstanding debt. Collateral stays locked. Repaying a loan that is already paid returns HTTP 409 `loan_not_active`.
+
+### Unlocking collateral
+
+`POST /api/v1/loans/{id}/collateral` with `{"amount": ...}` releases that amount of pledged collateral. After the release, the loan's LTV must still be at or under the collateral asset's origination LTV. A paid loan can release whatever `currentCollateral` remains. A request above that limit returns HTTP 400 `unhealthy_ltv`.
 
 ### Interest and liquidation
 
@@ -153,6 +157,7 @@ On the current list every interest rate is 0.05 and every fin margin is 0.1. Liq
 | GET | `/api/v1/loans/{id}` | Get one loan | Yes |
 | POST | `/api/v1/loans` | Open a loan | Yes |
 | PATCH | `/api/v1/loans/{id}` | Repay part or all of a loan | Yes |
+| POST | `/api/v1/loans/{id}/collateral` | Unlock collateral up to the origination LTV | Yes |
 | GET | `/api/v1/pool/{assetId}` | Omnibus available balance for one asset | Yes |
 
 ## Error handling
@@ -172,6 +177,7 @@ Domain failures are one object with `error` and `message`.
 | 404 | `deposit_wallet_not_found` | Missing wallet, including another user's id |
 | 404 | `loan_not_found` | Missing loan, including another user's id |
 | 409 | `loan_not_active` | Repayment of a loan that is already paid |
+| 400 | `unhealthy_ltv` | Unlock would put the loan above the collateral asset's origination LTV |
 | 400 | `invalid_repayment_amount` | Repayment amount is not positive |
 | 400 | `insufficient_funds` | Available balance or collateral is too low |
 | 400 | `insufficient_pool_funds` | Omnibus pool cannot cover an external withdrawal or a new loan |
@@ -231,7 +237,7 @@ curl -X POST https://satchel.sergiozurron.site/api/v1/funds_transfer/withdrawal 
 
 Open a loan with `loanAssetId`, `collateralAssetId`, and `collateralAmount`. The loan id comes back in the response.
 
-List, get, create, and repay all return:
+List, get, create, repay, and unlock all return:
 
 | Field | Meaning |
 | --- | --- |
@@ -271,6 +277,17 @@ curl -X PATCH https://satchel.sergiozurron.site/api/v1/loans/42 \
 ```
 
 The response is the updated loan.
+
+Unlock collateral with the loan id in the path and `amount` in the body. The amount is released when the loan's LTV afterward is still at or under that collateral asset's origination LTV. On the current asset list every origination LTV is 0.8.
+
+```bash
+curl -X POST https://satchel.sergiozurron.site/api/v1/loans/42/collateral \
+  -H "Authorization: Bearer <jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 0.25}'
+```
+
+The response is the updated loan. A request above the cap returns HTTP 400 `unhealthy_ltv`.
 
 ### Pool
 

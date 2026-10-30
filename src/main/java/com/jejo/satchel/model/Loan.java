@@ -40,7 +40,7 @@ public class Loan {
 	private BigDecimal collateralAmount; // Collateral amount locked at origination
 	@Column(nullable = false, precision = 38, scale = 7)
 	private BigDecimal currentCollateral; // Collateral still pledged after liquidations and
-											// repayments
+											// unlocks
 	@Column(nullable = false, precision = 10, scale = 6)
 	private BigDecimal interestRate; // Yearly interest rate in percentage
 	@Column(nullable = false)
@@ -63,12 +63,8 @@ public class Loan {
 		this.returnedAmount = this.returnedAmount.add(amount);
 	}
 
-	public BigDecimal releaseCollateral(BigDecimal repayment) {
-		BigDecimal outstanding = getOutstandingAmount();
-		BigDecimal released = currentCollateral.multiply(repayment).divide(outstanding, 7,
-				RoundingMode.DOWN);
-		currentCollateral = currentCollateral.subtract(released);
-		return released;
+	public void unlockCollateral(BigDecimal amount) {
+		currentCollateral = currentCollateral.subtract(amount);
 	}
 
 	public void liquidate(BigDecimal collateralSold, BigDecimal proceeds) {

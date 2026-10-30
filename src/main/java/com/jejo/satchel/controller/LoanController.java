@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.jejo.satchel.dto.CreateLoanRequest;
 import com.jejo.satchel.dto.LoanRepaymentRequest;
 import com.jejo.satchel.dto.LoanResponse;
+import com.jejo.satchel.dto.UnlockCollateralRequest;
 import com.jejo.satchel.mapper.LoanMapper;
 import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.service.LoanService;
@@ -52,6 +53,13 @@ public class LoanController {
 	public ResponseEntity<LoanResponse> repayLoan(@PathVariable Long id,
 			@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
 		Loan updatedLoan = loanService.repayLoan(id, repaymentRequest.getAmount());
+		return ResponseEntity.ok(loanMapper.toLoanResponse(updatedLoan));
+	}
+
+	@PostMapping("/{id}/collateral")
+	public ResponseEntity<LoanResponse> unlockCollateral(@PathVariable Long id,
+			@Valid @RequestBody UnlockCollateralRequest unlockRequest) {
+		Loan updatedLoan = loanService.unlockCollateral(id, unlockRequest.getAmount());
 		return ResponseEntity.ok(loanMapper.toLoanResponse(updatedLoan));
 	}
 	

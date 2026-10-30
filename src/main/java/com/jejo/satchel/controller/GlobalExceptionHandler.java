@@ -28,6 +28,7 @@ import com.jejo.satchel.exception.InsufficientPoolFundsException;
 import com.jejo.satchel.exception.InvalidRepaymentAmountException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
+import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.exception.SelfTransferException;
 import com.jejo.satchel.exception.UnableToGetAddressException;
 import com.jejo.satchel.exception.UnverifiedWebhookException;
@@ -54,6 +55,7 @@ public class GlobalExceptionHandler {
 	public static final String ERROR_ACCOUNTS_ALREADY_CREATED = "accounts_already_created";
 	public static final String ERROR_INSUFFICIENT_FUNDS = "insufficient_funds";
 	public static final String ERROR_INSUFFICIENT_POOL_FUNDS = "insufficient_pool_funds";
+	public static final String ERROR_UNHEALTHY_LTV = "unhealthy_ltv";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<Set<ErrorResponse>> handleSyntacticalValidationException(MethodArgumentNotValidException ex) {
@@ -200,6 +202,12 @@ public class GlobalExceptionHandler {
 				.body(new ErrorResponse(UNABLE_TO_GET_ADDRESS, ex.getMessage()));
 	} 
 	
+	@ExceptionHandler(UnhealthyLtvException.class)
+	public ResponseEntity<ErrorResponse> handleUnhealthyLtvException(UnhealthyLtvException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(new ErrorResponse(ERROR_UNHEALTHY_LTV, ex.getMessage()));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
