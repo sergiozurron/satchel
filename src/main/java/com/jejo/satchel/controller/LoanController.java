@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,7 +48,7 @@ public class LoanController {
 		return ResponseEntity.ok(loanMapper.toLoanResponse(createdLoan));
 	}
 	
-	@PatchMapping("/{id}")
+	@PostMapping("/{id}/repayments")
 	public ResponseEntity<LoanResponse> repayLoan(@PathVariable Long id,
 			@Valid @RequestBody LoanRepaymentRequest repaymentRequest) {
 		Loan updatedLoan = loanService.repayLoan(id, repaymentRequest.getAmount());

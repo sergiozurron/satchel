@@ -123,7 +123,7 @@ Satchel sizes the loan from the collateral asset's origination LTV and the CoinG
 
 ### Repayment
 
-`PATCH /api/v1/loans/{id}` with `{"amount": ...}` repays part or all of a loan. The applied amount is the smaller of the request and the outstanding debt. Collateral stays locked. Repaying a loan that is already paid returns HTTP 409 `loan_not_active`.
+`POST /api/v1/loans/{id}/repayments` with `{"amount": ...}` repays part or all of a loan. The applied amount is the smaller of the request and the outstanding debt. Collateral stays locked. Repaying a loan that is already paid returns HTTP 409 `loan_not_active`.
 
 ### Unlocking collateral
 
@@ -156,7 +156,7 @@ On the current list every interest rate is 0.05 and every fin margin is 0.1. Liq
 | GET | `/api/v1/loans` | List the caller's loans, newest first | Yes |
 | GET | `/api/v1/loans/{id}` | Get one loan | Yes |
 | POST | `/api/v1/loans` | Open a loan | Yes |
-| PATCH | `/api/v1/loans/{id}` | Repay part or all of a loan | Yes |
+| POST | `/api/v1/loans/{id}/repayments` | Repay part or all of a loan | Yes |
 | POST | `/api/v1/loans/{id}/collateral` | Unlock collateral up to the origination LTV | Yes |
 | GET | `/api/v1/pool/{assetId}` | Omnibus available balance for one asset | Yes |
 
@@ -270,7 +270,7 @@ curl -X POST https://satchel.sergiozurron.site/api/v1/loans \
 Repay with the loan id in the path and `amount` in the body:
 
 ```bash
-curl -X PATCH https://satchel.sergiozurron.site/api/v1/loans/42 \
+curl -X POST https://satchel.sergiozurron.site/api/v1/loans/42/repayments \
   -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{"amount": 100.00}'

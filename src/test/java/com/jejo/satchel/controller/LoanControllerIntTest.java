@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -125,7 +125,7 @@ public class LoanControllerIntTest {
 				.amount(repaymentAmount).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk())
@@ -163,7 +163,7 @@ public class LoanControllerIntTest {
 				.amount(repaymentAmount).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk())
@@ -191,7 +191,7 @@ public class LoanControllerIntTest {
 				.amount(BigDecimal.ZERO).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isBadRequest());
@@ -204,7 +204,7 @@ public class LoanControllerIntTest {
 				.amount(new BigDecimal("-100.0000000")).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isBadRequest());
@@ -217,7 +217,7 @@ public class LoanControllerIntTest {
 				.amount(new BigDecimal("100.0000000")).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", 99999L).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", 99999L).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isNotFound());
@@ -239,7 +239,7 @@ public class LoanControllerIntTest {
 				.amount(new BigDecimal("100.0000000")).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", paidLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", paidLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isConflict());
@@ -255,7 +255,7 @@ public class LoanControllerIntTest {
 				.amount(new BigDecimal("100.0000000")).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isBadRequest());
@@ -277,7 +277,7 @@ public class LoanControllerIntTest {
 				.amount(repaymentAmount).build();
 
 		// When
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk());
@@ -307,7 +307,7 @@ public class LoanControllerIntTest {
 				.amount(new BigDecimal("100.0000000")).build();
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + otherJwt)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isNotFound());
@@ -319,7 +319,7 @@ public class LoanControllerIntTest {
 		String requestBody = "{}";
 
 		// When & Then
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON).content(requestBody))
 				.andExpect(status().isBadRequest());
 	}
@@ -332,7 +332,7 @@ public class LoanControllerIntTest {
 				.amount(repaymentAmount).build();
 
 		// When
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk());
@@ -358,7 +358,7 @@ public class LoanControllerIntTest {
 				.amount(firstRepayment).build();
 
 		// When - Perform first repayment
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(firstRequest))).andExpect(status().isOk());
 
@@ -368,7 +368,7 @@ public class LoanControllerIntTest {
 				.amount(secondRepayment).build();
 
 		// Then - Perform second repayment
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(secondRequest))).andExpect(status().isOk())
 				.andExpect(jsonPath("$.returnedAmount", Matchers.equalTo(300.0)))
@@ -392,7 +392,7 @@ public class LoanControllerIntTest {
 		LoanRepaymentRequest repaymentRequest = LoanRepaymentRequest.builder()
 				.amount(new BigDecimal("100.0000000")).build();
 
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isInternalServerError())
@@ -413,7 +413,7 @@ public class LoanControllerIntTest {
 		LoanRepaymentRequest repaymentRequest = LoanRepaymentRequest.builder()
 				.amount(new BigDecimal("100.0000000")).build();
 
-		mockMvc.perform(patch("/api/v1/loans/{id}", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
+		mockMvc.perform(post("/api/v1/loans/{id}/repayments", activeLoan.getId()).header(HttpHeaders.AUTHORIZATION, "Bearer " + jwtToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(repaymentRequest)))
 				.andExpect(status().isOk())
