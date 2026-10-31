@@ -11,7 +11,6 @@ import com.jejo.satchel.exception.DepositWalletNotFoundException;
 import com.jejo.satchel.exception.UnableToGetAddressException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.repository.DepositWalletRepository;
-import com.jejo.satchel.util.CurrentUserProvider;
 
 import jakarta.transaction.Transactional;
 

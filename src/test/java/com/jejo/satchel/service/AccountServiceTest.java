@@ -35,7 +35,6 @@ import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.FundsTransferRepository;
-import com.jejo.satchel.util.CurrentUserProvider;
 
 @ExtendWith(MockitoExtension.class)
 public class AccountServiceTest {

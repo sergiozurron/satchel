@@ -24,7 +24,6 @@ import com.jejo.satchel.exception.DepositWalletNotFoundException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
-import com.jejo.satchel.util.CurrentUserProvider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

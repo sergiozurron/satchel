@@ -43,7 +43,6 @@ import com.jejo.satchel.model.Loan;
 import com.jejo.satchel.model.User;
 import com.jejo.satchel.repository.DepositWalletRepository;
 import com.jejo.satchel.repository.LoanRepository;
-import com.jejo.satchel.util.CurrentUserProvider;
 
 /**
  * Unit tests for {@link LoanService}. Combines tests for processLoanRequest,

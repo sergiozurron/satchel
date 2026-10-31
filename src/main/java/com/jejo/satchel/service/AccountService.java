@@ -19,7 +19,6 @@ import com.jejo.satchel.model.FundsTransfer;
 import com.jejo.satchel.repository.FundsTransferRepository;
 import com.jejo.satchel.repository.LoanRepository;
 import com.jejo.satchel.repository.DepositWalletRepository;
-import com.jejo.satchel.util.CurrentUserProvider;
 import com.jejo.satchel.dto.TransactionDetails;
 import com.jejo.satchel.dto.WithdrawalRequest;
 

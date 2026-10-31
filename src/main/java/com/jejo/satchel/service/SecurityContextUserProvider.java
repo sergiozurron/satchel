@@ -1,12 +1,10 @@
-package com.jejo.satchel.util;
+package com.jejo.satchel.service;
 
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 
 import com.jejo.satchel.model.User;
 
-@Component
-public class CurrentUserProvider {
+public class SecurityContextUserProvider implements CurrentUserProvider {
 	
 	public User getCurrentUser() {
 		return (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();		

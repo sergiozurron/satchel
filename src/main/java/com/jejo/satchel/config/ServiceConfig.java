@@ -9,7 +9,9 @@ import com.jejo.satchel.service.AssetCustodianService;
 import com.jejo.satchel.service.AssetTradingService;
 import com.jejo.satchel.service.CoinbaseTradingService;
 import com.jejo.satchel.service.CoingeckoTradingService;
+import com.jejo.satchel.service.CurrentUserProvider;
 import com.jejo.satchel.service.FireblocksService;
+import com.jejo.satchel.service.SecurityContextUserProvider;
 
 @Configuration
 public class ServiceConfig {
@@ -34,6 +36,11 @@ public class ServiceConfig {
 			@Value("${coinbase.api.key-name}") String apiKey,
 			@Value("${coinbase.api.secret}") String apiSecret) {
 		return new CoinbaseTradingService(baseUrl, apiKey, apiSecret);
+	}
+	
+	@Bean
+	CurrentUserProvider currentUserProvider() {
+		return new SecurityContextUserProvider();
 	}
 
 }
