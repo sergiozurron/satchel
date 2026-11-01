@@ -103,6 +103,10 @@ public class FinancialService {
 				BigDecimal targetLtv = assetLtv.get(collateralAssetId);
 				BigDecimal rate = conversionRateService.getConversionRate(collateralAssetId,
 						loan.getLoanAssetId());
+				if (rate == null || rate.signum() <= 0) {
+					log.warn("Skipping LTV liquidation for loan {}: no conversion rate", loan.getId());
+					return;
+				}
 				BigDecimal collateralValue = collateral.multiply(rate);
 				BigDecimal currentLtv = debt.divide(collateralValue, LTV_SCALE, RoundingMode.HALF_UP);
 				if (currentLtv.compareTo(maxLtv) <= 0) {
@@ -112,6 +116,10 @@ public class FinancialService {
 						targetLtv);
 				BigDecimal proceeds = conversionRateService.sell(collateralAssetId, loan.getLoanAssetId(),
 						amountToSell);
+				if (proceeds == null) {
+					log.warn("Skipping LTV liquidation for loan {}: sell did not fill", loan.getId());
+					return;
+				}
 				loan.liquidate(amountToSell, proceeds);
 			} catch (RuntimeException ex) {
 				log.warn("Skipping LTV liquidation for loan {}: {}", loan.getId(), ex.getMessage());

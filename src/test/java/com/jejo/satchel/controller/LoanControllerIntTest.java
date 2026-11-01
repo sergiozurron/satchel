@@ -716,6 +716,7 @@ public class LoanControllerIntTest {
 	void unlockCollateral_shouldReturnOk_whenAmountKeepsHealthyLtv() throws Exception {
 		Loan loan = saveUnlockLoan();
 		stubEthToUsdcRate();
+		when(conversionRateService.withdraw(eq("ETH_TEST5"), any(), any())).thenReturn(true);
 		UnlockCollateralRequest request = UnlockCollateralRequest.builder()
 				.amount(new BigDecimal("0.5")).build();
 

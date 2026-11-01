@@ -69,9 +69,12 @@ public class LoanService {
 		if (collateralAmount.compareTo(collateralWallet.getAvailableBalance()) > 0) {
 			throw new InsufficientCollateralException();
 		}
+		BigDecimal rate = conversionRateService.getConversionRate(collateralAssetId, loanAssetId);
+		if (rate == null || rate.signum() <= 0) {
+			throw new UnableToConvertAsset(collateralAssetId, loanAssetId);
+		}
 		BigDecimal ltvCollateral = assetLtv.get(collateralAssetId).multiply(collateralAmount);
-		BigDecimal loanAmount = conversionRateService
-				.getConversionRate(collateralAssetId, loanAssetId).multiply(ltvCollateral);
+		BigDecimal loanAmount = rate.multiply(ltvCollateral);
 		BigDecimal omnibusBalance = assetCustodianService.getPoolSize(loanAssetId);
 		if (omnibusBalance.compareTo(loanAmount) < 0) {
 			throw new InsufficientPoolFundsException();
@@ -146,7 +149,9 @@ public class LoanService {
 			throw new UnhealthyLtvException();
 		}
 		// Return the coins before releasing the pledge. A failed send leaves the lock in place.
-		conversionRateService.withdraw(loan.getCollateralAssetId(), amount, omnibusAddress);
+		if (!conversionRateService.withdraw(loan.getCollateralAssetId(), amount, omnibusAddress)) {
+			throw new CollateralTransferException();
+		}
 		loan.unlockCollateral(amount);
 		collateralWallet.unlockBalance(amount);
 		return loan;

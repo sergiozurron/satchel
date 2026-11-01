@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -36,7 +35,7 @@ import com.jejo.satchel.exception.InsufficientFundsException;
 import com.jejo.satchel.exception.InsufficientCollateralException;
 import com.jejo.satchel.exception.LoanAlreadyPaidException;
 import com.jejo.satchel.exception.LoanNotFoundException;
-import com.jejo.satchel.exception.TradingOrderException;
+import com.jejo.satchel.exception.UnableToConvertAsset;
 import com.jejo.satchel.exception.UnhealthyLtvException;
 import com.jejo.satchel.model.DepositWallet;
 import com.jejo.satchel.model.Loan;
@@ -129,6 +128,27 @@ class LoanServiceTest {
 		assertThat(loanCaptor.getValue().isPaid()).isFalse();
 		verify(assetCustodianService).createTransaction(COLLATERAL_ASSET_ID, collateralAmount, USER_ID,
 				COINBASE_ADDRESS);
+	}
+
+	@Test
+	void processLoanRequest_nullConversionRate_throwsUnableToConvertAsset() {
+		CreateLoanRequest loanRequest = new CreateLoanRequest();
+		loanRequest.setCollateralAssetId(COLLATERAL_ASSET_ID);
+		loanRequest.setLoanAssetId(LOAN_ASSET_ID);
+		loanRequest.setCollateralAmount(BigDecimal.ONE);
+
+		when(depositWalletRepository.findByUserIdAndAssetId(USER_ID, COLLATERAL_ASSET_ID))
+				.thenReturn(Optional.of(DepositWallet.builder().balance(BigDecimal.TEN)
+						.lockedBalance(BigDecimal.ZERO).build()));
+		when(conversionRateService.getConversionRate(COLLATERAL_ASSET_ID, LOAN_ASSET_ID))
+				.thenReturn(null);
+
+		assertThatThrownBy(() -> loanService.processLoanRequest(loanRequest))
+				.isInstanceOf(UnableToConvertAsset.class);
+
+		verify(depositWalletRepository, never()).save(any(DepositWallet.class));
+		verify(loanRepository, never()).save(any(Loan.class));
+		verify(assetCustodianService, never()).createTransaction(any(), any(), any(), any());
 	}
 
 	@Test
@@ -646,6 +666,8 @@ class LoanServiceTest {
 		DepositWallet collateralWallet = pledgedWallet("1.0000000");
 		setHealthyLtv("ETH_TEST5", "0.8");
 		stubUnlock(loan, collateralWallet, "3000");
+		when(conversionRateService.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("0.5")),
+				eq(OMNIBUS_ADDRESS))).thenReturn(true);
 
 		Loan result = loanService.unlockCollateral(1L, new BigDecimal("0.5"));
 
@@ -701,6 +723,8 @@ class LoanServiceTest {
 		DepositWallet collateralWallet = pledgedWallet("50.0000000");
 		setHealthyLtv("ETH_TEST5", "0.8");
 		stubUnlock(loan, collateralWallet, "3");
+		when(conversionRateService.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("8.3333333")),
+				eq(OMNIBUS_ADDRESS))).thenReturn(true);
 
 		Loan result = loanService.unlockCollateral(1L, new BigDecimal("8.3333333"));
 
@@ -725,6 +749,8 @@ class LoanServiceTest {
 		when(loanRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(loan));
 		when(depositWalletRepository.findByUserIdAndAssetId(1L, "ETH_TEST5"))
 				.thenReturn(Optional.of(collateralWallet));
+		when(conversionRateService.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("0.5")),
+				eq(OMNIBUS_ADDRESS))).thenReturn(true);
 
 		Loan result = loanService.unlockCollateral(1L, new BigDecimal("0.5"));
 
@@ -744,11 +770,11 @@ class LoanServiceTest {
 		DepositWallet collateralWallet = pledgedWallet("1.0000000");
 		setHealthyLtv("ETH_TEST5", "0.8");
 		stubUnlock(loan, collateralWallet, "3000");
-		doThrow(new TradingOrderException("send failed")).when(conversionRateService)
-				.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("0.5")), eq(OMNIBUS_ADDRESS));
+		when(conversionRateService.withdraw(eq("ETH_TEST5"), eq(new BigDecimal("0.5")),
+				eq(OMNIBUS_ADDRESS))).thenReturn(false);
 
 		assertThatThrownBy(() -> loanService.unlockCollateral(1L, new BigDecimal("0.5")))
-				.isInstanceOf(TradingOrderException.class);
+				.isInstanceOf(CollateralTransferException.class);
 
 		assertThat(loan.getCurrentCollateral()).isEqualByComparingTo("1");
 		assertThat(collateralWallet.getLockedBalance()).isEqualByComparingTo("1");

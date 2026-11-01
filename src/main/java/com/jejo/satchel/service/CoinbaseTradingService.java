@@ -9,14 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.RestClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jejo.satchel.exception.TradingOrderException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,84 +46,135 @@ public class CoinbaseTradingService implements AssetTradingService {
 
 	@Override
 	public BigDecimal getConversionRate(String fromCurrency, String toCurrency) {
-		String from = CURRENCY_MAPPING.get(fromCurrency);
-		String to = CURRENCY_MAPPING.get(toCurrency);
-		if (from.equals(to)) {
-			return BigDecimal.ONE;
+		try {
+			String from = CURRENCY_MAPPING.get(fromCurrency);
+			String to = CURRENCY_MAPPING.get(toCurrency);
+			if (from == null || to == null) {
+				log.warn("No Coinbase currency for {} -> {}", fromCurrency, toCurrency);
+				return null;
+			}
+			if (from.equals(to)) {
+				return BigDecimal.ONE;
+			}
+			BigDecimal direct = productPrice(from + "-" + to);
+			if (direct != null) {
+				return direct.setScale(RATE_SCALE, RoundingMode.HALF_UP);
+			}
+			BigDecimal inverse = productPrice(to + "-" + from);
+			if (inverse != null && inverse.signum() > 0) {
+				return BigDecimal.ONE.divide(inverse, RATE_SCALE, RoundingMode.HALF_UP);
+			}
+			BigDecimal fromUsd = usdPrice(from);
+			BigDecimal toUsd = usdPrice(to);
+			if (fromUsd == null || toUsd == null || toUsd.signum() <= 0) {
+				log.warn("Unable to price {} in {}", fromCurrency, toCurrency);
+				return null;
+			}
+			return fromUsd.divide(toUsd, RATE_SCALE, RoundingMode.HALF_UP);
+		} catch (RuntimeException ex) {
+			log.warn("Unable to price {} in {}", fromCurrency, toCurrency, ex);
+			return null;
 		}
-		BigDecimal direct = productPrice(from + "-" + to);
-		if (direct != null) {
-			return direct.setScale(RATE_SCALE, RoundingMode.HALF_UP);
-		}
-		BigDecimal inverse = productPrice(to + "-" + from);
-		if (inverse != null) {
-			return BigDecimal.ONE.divide(inverse, RATE_SCALE, RoundingMode.HALF_UP);
-		}
-		return usdPrice(from).divide(usdPrice(to), RATE_SCALE, RoundingMode.HALF_UP);
 	}
 
 	@Override
 	public BigDecimal sell(String fromAsset, String toAsset, BigDecimal amount) {
-		String from = CURRENCY_MAPPING.get(fromAsset);
-		String to = CURRENCY_MAPPING.get(toAsset);
-		if (from.equals(to)) {
-			return amount;
+		try {
+			String from = CURRENCY_MAPPING.get(fromAsset);
+			String to = CURRENCY_MAPPING.get(toAsset);
+			if (from == null || to == null) {
+				log.error("No Coinbase currency for {} -> {}", fromAsset, toAsset);
+				return null;
+			}
+			if (from.equals(to)) {
+				return amount;
+			}
+			// Fill-or-kill: liquidation books the full base amount, so a partial fill must
+			// not happen.
+			String direct = from + "-" + to;
+			if (productListed(direct)) {
+				return placeOrder(direct, "SELL", amount, true);
+			}
+			String inverse = to + "-" + from;
+			if (productListed(inverse)) {
+				return placeOrder(inverse, "BUY", amount, false);
+			}
+			return null;
+		} catch (RuntimeException ex) {
+			log.error("Coinbase sell failed for {} -> {}", fromAsset, toAsset, ex);
+			return null;
 		}
-		// Fill-or-kill: liquidation books the full base amount, so a partial fill must
-		// not happen.
-		String direct = from + "-" + to;
-		if (productListed(direct)) {
-			return placeOrder(direct, "SELL", amount, true);
-		}
-		String inverse = to + "-" + from;
-		if (productListed(inverse)) {
-			return placeOrder(inverse, "BUY", amount, false);
-		}
-		return null;
 	}
 
 	@Override
-	public void withdraw(String asset, BigDecimal amount, String address) {
-		String currency = CURRENCY_MAPPING.get(asset);
-		if (currency == null) {
-			throw new TradingOrderException("No Coinbase currency for collateral asset " + asset);
+	public boolean withdraw(String asset, BigDecimal amount, String address) {
+		try {
+			String currency = CURRENCY_MAPPING.get(asset);
+			if (currency == null) {
+				log.error("No Coinbase currency for collateral asset {}", asset);
+				return false;
+			}
+			String accountId = accountId(currency);
+			if (accountId == null) {
+				return false;
+			}
+			Map<String, String> body = new LinkedHashMap<>();
+			body.put("type", "send");
+			body.put("to", address);
+			body.put("amount", amount.toPlainString());
+			body.put("currency", currency);
+			body.put("idem", UUID.randomUUID().toString());
+			String path = "/v2/accounts/" + accountId + "/transactions";
+			String token = jwt.sign("POST", host, path);
+			Boolean sent = restClient.post().uri(path).header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON).body(body)
+					.exchange((request, response) -> {
+						if (response.getStatusCode().isError()) {
+							log.error("Coinbase collateral send failed: {} {}",
+									response.getStatusCode(), readBody(response));
+							return false;
+						}
+						readBody(response);
+						return true;
+					});
+			return Boolean.TRUE.equals(sent);
+		} catch (RuntimeException ex) {
+			log.error("Coinbase collateral send failed for {}", asset, ex);
+			return false;
 		}
-		String accountId = accountId(currency);
-		Map<String, String> body = new LinkedHashMap<>();
-		body.put("type", "send");
-		body.put("to", address);
-		body.put("amount", amount.toPlainString());
-		body.put("currency", currency);
-		body.put("idem", UUID.randomUUID().toString());
-		String path = "/v2/accounts/" + accountId + "/transactions";
-		String token = jwt.sign("POST", host, path);
-		restClient.post().uri(path).header("Authorization", "Bearer " + token)
-				.contentType(MediaType.APPLICATION_JSON).body(body).retrieve()
-				.onStatus(HttpStatusCode::isError, (request, response) -> {
-					throw new TradingOrderException("Coinbase collateral send failed");
-				}).toBodilessEntity();
 	}
 
 	private String accountId(String currency) {
-		String path = "/v2/accounts";
-		String token = jwt.sign("GET", host, path);
-		JsonNode accounts = restClient.get().uri(path + "?limit=100")
-				.header("Authorization", "Bearer " + token).retrieve()
-				.onStatus(HttpStatusCode::isError, (request, response) -> {
-					throw new TradingOrderException("Coinbase account lookup failed");
-				}).body(JsonNode.class);
-		if (accounts == null) {
-			throw new TradingOrderException("Coinbase account lookup failed");
-		}
-		for (JsonNode account : accounts.path("data")) {
-			if (currency.equals(account.path("currency").path("code").asText())) {
-				String id = account.path("id").asText("");
-				if (!id.isBlank()) {
-					return id;
+		try {
+			String path = "/v2/accounts";
+			String token = jwt.sign("GET", host, path);
+			JsonNode accounts = restClient.get().uri(path + "?limit=100")
+					.header("Authorization", "Bearer " + token)
+					.exchange((request, response) -> {
+						if (response.getStatusCode().isError()) {
+							log.error("Coinbase account lookup failed: {} {}",
+									response.getStatusCode(), readBody(response));
+							return null;
+						}
+						return readJson(response);
+					});
+			if (accounts == null) {
+				return null;
+			}
+			for (JsonNode account : accounts.path("data")) {
+				if (currency.equals(account.path("currency").path("code").asText())) {
+					String id = account.path("id").asText("");
+					if (!id.isBlank()) {
+						return id;
+					}
 				}
 			}
+			log.error("Coinbase account not found for {}", currency);
+			return null;
+		} catch (RuntimeException ex) {
+			log.error("Coinbase account lookup failed", ex);
+			return null;
 		}
-		throw new TradingOrderException("Coinbase account not found for " + currency);
 	}
 
 	private BigDecimal placeOrder(String productId, String side, BigDecimal amount,
@@ -143,28 +192,39 @@ public class CoinbaseTradingService implements AssetTradingService {
 		body.put("order_configuration", Map.of("market_market_fok", size));
 
 		JsonNode created = postJson(BROKERAGE + "/orders", body);
-		if (!created.path("success").asBoolean(false)) {
-			log.error("Error creating coinbase order: {}", coinbaseMessage(created));
+		if (created == null || !created.path("success").asBoolean(false)) {
+			log.error("Error creating coinbase order: {}",
+					created == null ? "empty response" : coinbaseMessage(created));
+			return null;
 		}
 		String orderId = created.path("success_response").path("order_id").asText("");
 		if (orderId.isBlank()) {
-			log.error("{}", "Coinbase order response did not include an order id");
+			log.error("Coinbase order response did not include an order id");
+			return null;
 		}
 		return filledProceeds(orderId, sellBase);
 	}
 
 	private BigDecimal filledProceeds(String orderId, boolean sellBase) {
-		String path = BROKERAGE + "/orders/historical/" + orderId;
-		JsonNode order = getJson(path).path("order");
+		JsonNode root = getJson(BROKERAGE + "/orders/historical/" + orderId);
+		if (root == null) {
+			log.error("Coinbase order {} could not be read", orderId);
+			return null;
+		}
+		JsonNode order = root.path("order");
 		String status = order.path("status").asText("");
 		if (!"FILLED".equals(status)) {
 			log.error("Coinbase order {} ended with status {}", orderId, status);
 		}
 		if (sellBase) {
-			return requiredDecimal(order, "filled_value", orderId)
-					.subtract(requiredDecimal(order, "total_fees", orderId));
+			BigDecimal filledValue = decimalField(order, "filled_value", orderId);
+			BigDecimal fees = decimalField(order, "total_fees", orderId);
+			if (filledValue == null || fees == null) {
+				return null;
+			}
+			return filledValue.subtract(fees);
 		}
-		return requiredDecimal(order, "filled_size", orderId);
+		return decimalField(order, "filled_size", orderId);
 	}
 
 	private BigDecimal usdPrice(String symbol) {
@@ -175,27 +235,49 @@ public class CoinbaseTradingService implements AssetTradingService {
 	}
 
 	private BigDecimal productPrice(String productId) {
-		return restClient.get().uri(BROKERAGE + "/market/products/{productId}", productId)
-				.exchange((request, response) -> {
-					if (response.getStatusCode().isError()) {
-						log.warn("Unable to get {} price", productId);
-						return null;
-					}
-					JsonNode price = MAPPER.readTree(response.getBody()).get("price");
-					return new BigDecimal(price.asText());
-				});
+		try {
+			return restClient.get().uri(BROKERAGE + "/market/products/{productId}", productId)
+					.exchange((request, response) -> {
+						if (response.getStatusCode().isError()) {
+							log.warn("Unable to get {} price", productId);
+							readBody(response);
+							return null;
+						}
+						JsonNode body = readJson(response);
+						if (body == null) {
+							log.warn("Unable to get {} price", productId);
+							return null;
+						}
+						JsonNode price = body.get("price");
+						if (price == null || price.asText("").isBlank()) {
+							log.warn("Unable to get {} price", productId);
+							return null;
+						}
+						return new BigDecimal(price.asText());
+					});
+		} catch (RuntimeException ex) {
+			log.warn("Unable to get {} price", productId, ex);
+			return null;
+		}
 	}
 
 	private boolean productListed(String productId) {
-		return restClient.get().uri(BROKERAGE + "/market/products/{productId}", productId)
-				.exchange((request, response) -> {
-					response.getBody().readAllBytes();
-					if (response.getStatusCode().isError()) {
-						log.warn("{} is not listed", productId);
-						return false;
-					}
-					return true;
-				});
+		try {
+			Boolean listed = restClient.get()
+					.uri(BROKERAGE + "/market/products/{productId}", productId)
+					.exchange((request, response) -> {
+						readBody(response);
+						if (response.getStatusCode().isError()) {
+							log.warn("{} is not listed", productId);
+							return false;
+						}
+						return true;
+					});
+			return Boolean.TRUE.equals(listed);
+		} catch (RuntimeException ex) {
+			log.warn("{} is not listed", productId, ex);
+			return false;
+		}
 	}
 
 	private JsonNode postJson(String path, Object body) {
@@ -211,18 +293,40 @@ public class CoinbaseTradingService implements AssetTradingService {
 				.exchange((request, response) -> readJson(response));
 	}
 
-	private JsonNode readJson(ClientHttpResponse response) {
+	private String readBody(ClientHttpResponse response) {
 		try {
-			String body = new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
-			return MAPPER.readTree(body);
+			return new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8);
 		} catch (IOException ex) {
+			log.error("Coinbase response could not be read", ex);
+			return "";
 		}
-		return null;
 	}
 
-	private static BigDecimal requiredDecimal(JsonNode order, String field, String orderId) {
+	private JsonNode readJson(ClientHttpResponse response) {
+		String body = readBody(response);
+		if (body.isBlank()) {
+			return null;
+		}
+		try {
+			return MAPPER.readTree(body);
+		} catch (IOException ex) {
+			log.error("Coinbase response could not be read", ex);
+			return null;
+		}
+	}
+
+	private static BigDecimal decimalField(JsonNode order, String field, String orderId) {
 		JsonNode node = order.get(field);
-		return new BigDecimal(node.asText());
+		if (node == null || node.asText("").isBlank()) {
+			log.error("Coinbase order {} is missing {}", orderId, field);
+			return null;
+		}
+		try {
+			return new BigDecimal(node.asText());
+		} catch (NumberFormatException ex) {
+			log.error("Coinbase order {} has an invalid {}", orderId, field);
+			return null;
+		}
 	}
 
 	private static String coinbaseMessage(JsonNode node) {
